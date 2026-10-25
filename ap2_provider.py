@@ -461,6 +461,12 @@ class Ap2Provider:
             lambda api_url, secret, agent_id: fetch_gateway_credential(api_url, secret, agent_id, http=self._http)
         )
         self._managed_issued_at: dict[tuple[str, str], float] = {}
+        # Failure backoff for managed credential provisioning: a failed fetch
+        # must NOT be retried on every 8s tick. _managed_failures counts
+        # consecutive failures per (environment, slug); _managed_next_retry is
+        # the earliest time that agent may be retried again.
+        self._managed_failures: dict[tuple[str, str], int] = {}
+        self._managed_next_retry: dict[tuple[str, str], float] = {}
         self._execute = executor
         self.key = key
         self.runtime_sha256 = runtime_sha256
@@ -547,8 +553,11 @@ class Ap2Provider:
         """Obtain, and periodically rotate, the own key of each managed agent. A failure keeps the old key."""
         now = time.time()
         for env_name, slug, agent_id, roles in self.managed:
-            issued = self._managed_issued_at.get((env_name, slug))
+            key = (env_name, slug)
+            issued = self._managed_issued_at.get(key)
             if issued is not None and now - issued < max_age:
+                continue
+            if now < self._managed_next_retry.get(key, 0):
                 continue
             env = next((e for e in swarmsync_envs.environments() if e.name == env_name), None)
             if env is None or not env.gateway_secret:
@@ -556,15 +565,32 @@ class Ap2Provider:
                 continue
             try:
                 status, data = await self._fetch_credential(env.api_url, env.gateway_secret, agent_id)
-            except Exception as exc:  # noqa: BLE001 - keep the loop alive; the next tick retries
-                logger.warning("managed credential for %s/%s failed: %s", env_name, slug, type(exc).__name__)
+            except Exception as exc:  # noqa: BLE001 - keep the loop alive; back off, do not retry next tick
+                failures = self._managed_failures.get(key, 0) + 1
+                self._managed_failures[key] = failures
+                delay = min(60 * (2 ** (failures - 1)), 1800)
+                self._managed_next_retry[key] = now + delay
+                logger.warning(
+                    "managed credential for %s/%s failed: %s; next retry in %ss",
+                    env_name, slug, type(exc).__name__, delay,
+                )
                 continue
             if status not in (200, 201) or not isinstance(data, dict) or not data.get("apiKey"):
-                logger.warning("managed credential for %s/%s refused: HTTP %s", env_name, slug, status)
+                failures = self._managed_failures.get(key, 0) + 1
+                self._managed_failures[key] = failures
+                base = 120 if status == 429 else 60
+                delay = min(base * (2 ** (failures - 1)), 1800)
+                self._managed_next_retry[key] = now + delay
+                logger.warning(
+                    "managed credential for %s/%s refused: HTTP %s; next retry in %ss",
+                    env_name, slug, status, delay,
+                )
                 continue
             fresh = AgentCredential(env_name, slug, agent_id, str(data["apiKey"]), roles)
             self.credentials = [c for c in self.credentials if not (c.env == env_name and c.slug == slug)] + [fresh]
-            self._managed_issued_at[(env_name, slug)] = now
+            self._managed_issued_at[key] = now
+            self._managed_failures.pop(key, None)
+            self._managed_next_retry.pop(key, None)
             logger.info("managed credential for %s/%s issued", env_name, slug)
 
     async def tick(self) -> None:

@@ -288,8 +288,16 @@ def _start_ap2_provider() -> None:
     def _is_hosted_agent(slug: str) -> bool:
         return slug in CANONICAL_SLUGS or library_agents.is_library_slug(slug)
 
+    def _is_canonical_agent(slug: str) -> bool:
+        # Managed credential provisioning is Genesis canonical only (19).
+        # Library agents are hosted for serving, but provisioning their
+        # agent keys through the Genesis AP2 provider is not authorized by
+        # hosting alone; do not infer it. Static credentials, explicitly
+        # supplied per agent, keep the hosted filter above.
+        return slug in CANONICAL_SLUGS
+
     credentials = ap2_provider.load_credentials(is_canonical=_is_hosted_agent)
-    managed = ap2_provider.load_managed(is_canonical=_is_hosted_agent)
+    managed = ap2_provider.load_managed(is_canonical=_is_canonical_agent)
     if not credentials and not managed:
         logger.warning("GENESIS_AP2_PROVIDER_ENABLED is set but there are no valid credentials; provider not started")
         return
