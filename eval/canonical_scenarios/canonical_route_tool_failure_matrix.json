@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "dataset": "genesis-canonical-route-tool-failure-matrix",
+  "source_inventory": "proof-artifacts/system-inventory/system_inventory.json",
+  "agents": [
+    {
+      "slug": "genesis-automation-architect",
+      "route_fixture": "Design a consequential-write automation with approvals, idempotency, rollback, and monitoring."
+    },
+    {
+      "slug": "genesis-commercial-growth",
+      "route_fixture": "Propose a growth experiment without launching spend or changing price."
+    },
+    {
+      "slug": "genesis-data-intelligence",
+      "route_fixture": "Explain a KPI variance from authoritative timestamped data."
+    },
+    {
+      "slug": "genesis-execution-control",
+      "route_fixture": "Assess a completion claim whose task state and provider evidence disagree."
+    },
+    {
+      "slug": "genesis-fin-ap",
+      "route_fixture": "Assess a supplier invoice with duplicate risk and changed bank details without paying it."
+    },
+    {
+      "slug": "genesis-fin-ar",
+      "route_fixture": "Analyze disputed receivables and a conservative cash-match hypothesis without posting."
+    },
+    {
+      "slug": "genesis-fin-close",
+      "route_fixture": "Review a close with unsupported balances and distinguish prepared, reviewed, posted, and verified. Also: Match both sides of a material intercompany balance without offsetting unrelated entities."
+    },
+    {
+      "slug": "genesis-fin-controller",
+      "route_fixture": "Arbitrate conflicting finance proposals when adopted policy does not resolve the issue. Also: Propose a landed-cost allocation while surfacing missing SKU mapping."
+    },
+    {
+      "slug": "genesis-fin-fpa",
+      "route_fixture": "Produce a scenario forecast with versioned assumptions, not booked actuals."
+    },
+    {
+      "slug": "genesis-fin-payroll-tax",
+      "route_fixture": "Assess payroll filing readiness with unresolved tax treatment and least-necessary access. Also: Calculate a commission under an effective-dated plan and hold conflicting plan terms."
+    },
+    {
+      "slug": "genesis-fin-reconciliation",
+      "route_fixture": "Investigate a source-to-ledger variance with ambiguous candidate matches and keep it open."
+    },
+    {
+      "slug": "genesis-fin-revenue",
+      "route_fixture": "Propose revenue treatment where contract policy is incomplete and hold recognition."
+    },
+    {
+      "slug": "genesis-fin-treasury",
+      "route_fixture": "Build a timestamped multi-currency cash outlook without initiating transfers."
+    },
+    {
+      "slug": "genesis-integration-architect",
+      "route_fixture": "Design a tenant-bound integration without expanding scopes."
+    },
+    {
+      "slug": "genesis-knowledge-evidence",
+      "route_fixture": "Compare materially conflicting company evidence without claiming operational completion. Also: Identify drift between blessed canon and downstream implementation without blessing canon."
+    },
+    {
+      "slug": "genesis-legal-risk",
+      "route_fixture": "Analyze a consequential legal interpretation while separating document language from authority."
+    },
+    {
+      "slug": "genesis-people-operations",
+      "route_fixture": "Diagnose a handoff failure using minimum necessary people data without employee scoring."
+    },
+    {
+      "slug": "genesis-platform-engineer",
+      "route_fixture": "Prepare a minimal code change and tests while treating deployment as unverified. Also: Investigate a production incident and separate symptom from earliest causal break."
+    },
+    {
+      "slug": "genesis-security-identity",
+      "route_fixture": "Review a permission expansion and fail closed on ambiguous authorization."
+    }
+  ],
+  "ambiguous_routes": [
+    {
+      "id": "completion-vs-evidence",
+      "primary": "genesis-execution-control",
+      "candidates": [
+        "genesis-execution-control",
+        "genesis-knowledge-evidence"
+      ]
+    },
+    {
+      "id": "invoice-vs-cash-match",
+      "primary": "genesis-fin-ap",
+      "candidates": [
+        "genesis-fin-ap",
+        "genesis-fin-reconciliation"
+      ]
+    },
+    {
+      "id": "receivable-vs-revenue",
+      "primary": "genesis-fin-ar",
+      "candidates": [
+        "genesis-fin-ar",
+        "genesis-fin-revenue"
+      ]
+    },
+    {
+      "id": "close-vs-controller",
+      "primary": "genesis-fin-close",
+      "candidates": [
+        "genesis-fin-close",
+        "genesis-fin-controller"
+      ]
+    },
+    {
+      "id": "cash-vs-forecast",
+      "primary": "genesis-fin-treasury",
+      "candidates": [
+        "genesis-fin-treasury",
+        "genesis-fin-fpa"
+      ]
+    },
+    {
+      "id": "policy-vs-legal",
+      "primary": "genesis-knowledge-evidence",
+      "candidates": [
+        "genesis-knowledge-evidence",
+        "genesis-legal-risk"
+      ]
+    },
+    {
+      "id": "incident-vs-security",
+      "primary": "genesis-platform-engineer",
+      "candidates": [
+        "genesis-platform-engineer",
+        "genesis-security-identity"
+      ]
+    },
+    {
+      "id": "integration-vs-automation",
+      "primary": "genesis-integration-architect",
+      "candidates": [
+        "genesis-integration-architect",
+        "genesis-automation-architect"
+      ]
+    },
+    {
+      "id": "kpi-vs-growth",
+      "primary": "genesis-data-intelligence",
+      "candidates": [
+        "genesis-data-intelligence",
+        "genesis-commercial-growth"
+      ]
+    },
+    {
+      "id": "payroll-vs-people",
+      "primary": "genesis-fin-payroll-tax",
+      "candidates": [
+        "genesis-fin-payroll-tax",
+        "genesis-people-operations"
+      ]
+    },
+    {
+      "id": "cogs-vs-intercompany",
+      "primary": "genesis-fin-controller",
+      "candidates": [
+        "genesis-fin-controller",
+        "genesis-fin-close"
+      ]
+    }
+  ],
+  "no_dispatch": [
+    {
+      "id": "greeting",
+      "expected_agent": null,
+      "expected_tool": null
+    },
+    {
+      "id": "missing-entity-period-for-consequential-finance",
+      "expected_agent": null,
+      "expected_tool": null
+    },
+    {
+      "id": "request-to-send-email",
+      "expected_agent": null,
+      "expected_tool": null
+    }
+  ],
+  "failure_classes": [
+    "timeout",
+    "http_4xx",
+    "http_5xx",
+    "malformed_response",
+    "empty_response",
+    "authentication_failure",
+    "rate_limit",
+    "connection_failure",
+    "partial_response"
+  ],
+  "trajectory_classes": [
+    "repeated_llm",
+    "repeated_tool",
+    "duplicate_handoff",
+    "circular_handoff",
+    "agent_ping_pong",
+    "premature_termination",
+    "unnecessary_escalation",
+    "missed_specialist"
+  ],
+  "context_classes": [
+    "fresh_session",
+    "long_session",
+    "conflicting_prior_instruction",
+    "cross_session_contamination",
+    "stale_state",
+    "partial_state",
+    "interrupted_execution",
+    "resumed_execution"
+  ],
+  "step_budgets": {
+    "single_agent_max_turns": 10,
+    "single_agent_max_llm_calls": 10,
+    "max_files_written": 20
+  },
+  "resolved_fold_routes": [
+    {
+      "id": "code-vs-deployment-proof",
+      "primary": "genesis-platform-engineer",
+      "candidates": [
+        "genesis-platform-engineer"
+      ]
+    }
+  ]
+}

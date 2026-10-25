@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "description": "Trusted AP2 clients authorized to send signed envelopes to the Genesis agents gateway.",
+  "clients": [
+    {
+      "client_id": "cato",
+      "principal_id": "service:cato",
+      "tenant_id": "e4l",
+      "name": "Cato Agent Framework",
+      "pubkey_b64": "QL5bu7jozPTZ2dKc1qi5PNZhMJoCV82RexgIC2T3pho=",
+      "algorithm": "ed25519",
+      "capabilities": [
+        "agent.invoke",
+        "agent.list",
+        "agent.health",
+        "job.read",
+        "artifact.read",
+        "retrieval.query"
+      ],
+      "enabled": true,
+      "added_at": "2026-05-17T23:20:42Z",
+      "key_rotated_at": "2026-09-13T17:59:44Z",
+      "notes": "Existing Cato encrypted vault identity independently verified read-only on 2026-09-13: private/public Ed25519 pair matches; vault content hash unchanged. Only the current public key is trusted. Principal, tenant and capabilities preserved. Historical rotation narratives are retained in Git history."
+    }
+  ]
+}

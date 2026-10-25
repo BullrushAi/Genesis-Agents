@@ -1,0 +1,457 @@
+{
+  "schema_version": 1,
+  "architecture": "Cato selects structured work capabilities; this Genesis repository validates a deterministic canonical dispatch plan; dependency waves and lexical work_id order define execution order",
+  "valid_cases": [
+    {
+      "id": "no-agent-greeting",
+      "class": "no-agent",
+      "work": [],
+      "expected_waves": [],
+      "required": []
+    },
+    {
+      "id": "no-tool-legal-analysis",
+      "class": "no-tool",
+      "work": [
+        {
+          "work_id": "legal",
+          "capability": "legal_risk"
+        }
+      ],
+      "expected_waves": [
+        [
+          "genesis-legal-risk"
+        ]
+      ],
+      "required": [
+        "genesis-legal-risk"
+      ]
+    },
+    {
+      "id": "adjacent-invoice-and-reconcile",
+      "class": "adjacent-specialists",
+      "work": [
+        {
+          "work_id": "invoice",
+          "capability": "finance_accounts_payable"
+        },
+        {
+          "work_id": "reconcile",
+          "capability": "finance_reconciliation",
+          "depends_on": [
+            "invoice"
+          ]
+        }
+      ],
+      "expected_waves": [
+        [
+          "genesis-fin-ap"
+        ],
+        [
+          "genesis-fin-reconciliation"
+        ]
+      ],
+      "required": [
+        "genesis-fin-ap",
+        "genesis-fin-reconciliation"
+      ]
+    },
+    {
+      "id": "confusing-revenue-receivable",
+      "class": "intentionally-confusing",
+      "work": [
+        {
+          "work_id": "recognition",
+          "capability": "finance_revenue"
+        },
+        {
+          "work_id": "collection",
+          "capability": "finance_accounts_receivable"
+        }
+      ],
+      "expected_waves": [
+        [
+          "genesis-fin-ar",
+          "genesis-fin-revenue"
+        ]
+      ],
+      "required": [
+        "genesis-fin-revenue",
+        "genesis-fin-ar"
+      ]
+    },
+    {
+      "id": "multi-domain-release",
+      "class": "multi-domain",
+      "work": [
+        {
+          "work_id": "change",
+          "capability": "platform_engineering"
+        },
+        {
+          "work_id": "security",
+          "capability": "security_identity",
+          "depends_on": [
+            "change"
+          ]
+        },
+        {
+          "work_id": "control",
+          "capability": "execution_control",
+          "depends_on": [
+            "security"
+          ]
+        }
+      ],
+      "expected_waves": [
+        [
+          "genesis-platform-engineer"
+        ],
+        [
+          "genesis-security-identity"
+        ],
+        [
+          "genesis-execution-control"
+        ]
+      ],
+      "required": [
+        "genesis-platform-engineer",
+        "genesis-security-identity",
+        "genesis-execution-control"
+      ],
+      "folded_scope": "Platform change includes the absorbed reliability assessment."
+    },
+    {
+      "id": "overlapping-policy-risk",
+      "class": "overlapping-skills",
+      "work": [
+        {
+          "work_id": "canon",
+          "capability": "canon_stewardship"
+        },
+        {
+          "work_id": "legal",
+          "capability": "legal_risk"
+        }
+      ],
+      "expected_waves": [
+        [
+          "genesis-knowledge-evidence",
+          "genesis-legal-risk"
+        ]
+      ],
+      "required": [
+        "genesis-knowledge-evidence",
+        "genesis-legal-risk"
+      ],
+      "folded_scope": "Canon stewardship includes evidence assessment in one bounded assignment."
+    },
+    {
+      "id": "parallel-finance-analysis",
+      "class": "parallel-workflow",
+      "work": [
+        {
+          "work_id": "cash",
+          "capability": "finance_treasury"
+        },
+        {
+          "work_id": "forecast",
+          "capability": "finance_planning_analysis"
+        },
+        {
+          "work_id": "close",
+          "capability": "finance_close",
+          "depends_on": [
+            "cash",
+            "forecast"
+          ]
+        }
+      ],
+      "expected_waves": [
+        [
+          "genesis-fin-treasury",
+          "genesis-fin-fpa"
+        ],
+        [
+          "genesis-fin-close"
+        ]
+      ],
+      "required": [
+        "genesis-fin-treasury",
+        "genesis-fin-fpa",
+        "genesis-fin-close"
+      ]
+    },
+    {
+      "id": "sequential-automation",
+      "class": "sequential-workflow",
+      "work": [
+        {
+          "work_id": "integration",
+          "capability": "integration_architecture"
+        },
+        {
+          "work_id": "automation",
+          "capability": "automation_architecture",
+          "depends_on": [
+            "integration"
+          ]
+        },
+        {
+          "work_id": "operations",
+          "capability": "reliability_incident",
+          "depends_on": [
+            "automation"
+          ]
+        }
+      ],
+      "expected_waves": [
+        [
+          "genesis-integration-architect"
+        ],
+        [
+          "genesis-automation-architect"
+        ],
+        [
+          "genesis-platform-engineer"
+        ]
+      ],
+      "required": [
+        "genesis-integration-architect",
+        "genesis-automation-architect",
+        "genesis-platform-engineer"
+      ]
+    }
+  ],
+  "rejected_cases": [
+    {
+      "id": "wrong-specialist-ap-vs-ar",
+      "class": "wrong-specialist-trap",
+      "work": [
+        {
+          "work_id": "invoice",
+          "capability": "finance_accounts_payable",
+          "claimed_specialist": "genesis-fin-ar"
+        }
+      ],
+      "error": "wrong_specialist"
+    },
+    {
+      "id": "wrong-specialist-platform-vs-security",
+      "class": "wrong-specialist-trap",
+      "work": [
+        {
+          "work_id": "code",
+          "capability": "platform_engineering",
+          "claimed_specialist": "genesis-security-identity"
+        }
+      ],
+      "error": "wrong_specialist"
+    },
+    {
+      "id": "unknown-work",
+      "class": "no-agent",
+      "work": [
+        {
+          "work_id": "unknown",
+          "capability": "unmapped_capability"
+        }
+      ],
+      "error": "no_specialist_for_capability"
+    },
+    {
+      "id": "duplicate-work",
+      "class": "duplicate-dispatch",
+      "work": [
+        {
+          "work_id": "same",
+          "capability": "legal_risk"
+        },
+        {
+          "work_id": "same",
+          "capability": "security_identity"
+        }
+      ],
+      "error": "duplicate_work_id"
+    },
+    {
+      "id": "duplicate-specialist",
+      "class": "duplicate-dispatch",
+      "work": [
+        {
+          "work_id": "first",
+          "capability": "legal_risk"
+        },
+        {
+          "work_id": "second",
+          "capability": "legal_risk"
+        }
+      ],
+      "error": "duplicate_specialist_dispatch"
+    },
+    {
+      "id": "self-cycle",
+      "class": "circular-routing",
+      "work": [
+        {
+          "work_id": "loop",
+          "capability": "execution_control",
+          "depends_on": [
+            "loop"
+          ]
+        }
+      ],
+      "error": "circular_route"
+    },
+    {
+      "id": "two-agent-ping-pong",
+      "class": "agent-ping-pong",
+      "work": [
+        {
+          "work_id": "a",
+          "capability": "execution_control",
+          "depends_on": [
+            "b"
+          ]
+        },
+        {
+          "work_id": "b",
+          "capability": "knowledge_evidence",
+          "depends_on": [
+            "a"
+          ]
+        }
+      ],
+      "error": "circular_route"
+    },
+    {
+      "id": "dangling-handoff",
+      "class": "missed-specialist",
+      "work": [
+        {
+          "work_id": "close",
+          "capability": "finance_close",
+          "depends_on": [
+            "reconciliation"
+          ]
+        }
+      ],
+      "error": "missed_required_specialist"
+    },
+    {
+      "id": "duplicate-handoff",
+      "class": "redundant-handoff",
+      "work": [
+        {
+          "work_id": "close",
+          "capability": "finance_close",
+          "depends_on": [
+            "reconcile",
+            "reconcile"
+          ]
+        },
+        {
+          "work_id": "reconcile",
+          "capability": "finance_reconciliation"
+        }
+      ],
+      "error": "duplicate_dependency"
+    },
+    {
+      "id": "unexpected-routing-directive",
+      "class": "malformed-input",
+      "work": [
+        {
+          "work_id": "legal",
+          "capability": "legal_risk",
+          "force": true
+        }
+      ],
+      "error": "unexpected_work_item_field"
+    },
+    {
+      "id": "merged-role-duplicate-reliability",
+      "work": [
+        {
+          "work_id": "change",
+          "capability": "platform_engineering"
+        },
+        {
+          "work_id": "security",
+          "capability": "security_identity",
+          "depends_on": [
+            "change"
+          ]
+        },
+        {
+          "work_id": "reliability",
+          "capability": "reliability_incident",
+          "depends_on": [
+            "change"
+          ]
+        },
+        {
+          "work_id": "control",
+          "capability": "execution_control",
+          "depends_on": [
+            "security"
+          ]
+        }
+      ],
+      "error": "duplicate_specialist_dispatch"
+    },
+    {
+      "id": "merged-role-duplicate-canon",
+      "work": [
+        {
+          "work_id": "canon",
+          "capability": "canon_stewardship"
+        },
+        {
+          "work_id": "legal",
+          "capability": "legal_risk"
+        },
+        {
+          "work_id": "evidence",
+          "capability": "knowledge_evidence"
+        }
+      ],
+      "error": "duplicate_specialist_dispatch"
+    }
+  ],
+  "verification_cases": [
+    {
+      "id": "premature-completion",
+      "class": "missed-specialist",
+      "work": [
+        {
+          "work_id": "code",
+          "capability": "platform_engineering"
+        }
+      ],
+      "required": [
+        "genesis-platform-engineer",
+        "genesis-security-identity"
+      ],
+      "error": "missed_required_specialist"
+    },
+    {
+      "id": "unnecessary-specialist",
+      "class": "unnecessary-specialist",
+      "work": [
+        {
+          "work_id": "code",
+          "capability": "platform_engineering"
+        },
+        {
+          "work_id": "growth",
+          "capability": "commercial_growth"
+        }
+      ],
+      "required": [
+        "genesis-platform-engineer"
+      ],
+      "error": "unnecessary_specialist"
+    }
+  ]
+}

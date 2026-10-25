@@ -1,0 +1,71 @@
+{
+  "_about": "Starter examples migrated to the canonical 19 roles. These prove harness behavior and do not certify the full roster.",
+  "example_schema": {
+    "_conformance": "Reconciled against eval/target.py (t25). The target reads inputs.slug / inputs.task / inputs.mode / inputs.require_artifact / inputs.metadata and IGNORES unknown keys, which is where the rubric-only fields below live.",
+    "id": "string. Stable example identifier. Not read by the target.",
+    "inputs": {
+      "slug": "Required exact canonical public ID; retired aliases are rejected.",
+      "task": "REQUIRED. The prompt. Aliases accepted by the target: prompt, input, question, query.",
+      "mode": "live_test (default) or full. live_test sets testContext:true and BYPASSES tool dispatch.",
+      "require_artifact": "optional bool, forwarded to the gateway.",
+      "expectation": "RUBRIC-ONLY. 'answer' or 'refusal'. Selects the default rubric set and tells the judge which outcome is correct.",
+      "grounding": "RUBRIC-ONLY. Exactly what facts the agent was given. The literal string 'NONE' means any specific in the response that is not general public knowledge is invented.",
+      "contract": "RUBRIC-ONLY. The declared output shape. 'prose' or a JSON schema sketch. Drives output_wellformedness.",
+      "criteria": "RUBRIC-ONLY. List of example-specific checks appended to every judge prompt.",
+      "rubrics": "RUBRIC-ONLY. Optional explicit rubric names. Omitted means rubrics.default_rubric_names(expectation)."
+    },
+    "outputs": {
+      "_note": "Reference material for the judge and for human review. Never sent to the agent.",
+      "reference_notes": "Prose describing what a correct response looks like and the trap to avoid.",
+      "must_not_contain": "Substrings whose presence is strong evidence of fabrication. Advisory for human review; the rubrics, not this list, decide the score."
+    },
+    "metadata": {
+      "bucket": "llm_only | tools_capable | guarded",
+      "tools_required": "bool. True means the example cannot be honestly scored in live_test mode.",
+      "negative": "bool. True for examples whose correct outcome is a refusal.",
+      "job_mode": "'async' where a full-mode call returns job_id + poll_url and must be polled at GET /agents/jobs/{job_id}.",
+      "guard": "guarded set only: which runner guard this example is expected to trip."
+    }
+  },
+  "datasets": [
+    {
+      "file": "llm_only.jsonl",
+      "examples": 9,
+      "negatives": 3,
+      "bucket": "llm_only",
+      "population": "Selected canonical roles; see each example for exact scope.",
+      "measures": "Persona fidelity, reasoning quality, and refusal honesty. Nothing else is measurable for these agents.",
+      "safe_in_live_test": true
+    },
+    {
+      "file": "tools_capable.jsonl",
+      "examples": 7,
+      "negatives": 2,
+      "bucket": "tools_capable",
+      "population": "Selected canonical roles; see each example for exact scope.",
+      "measures": "Still only persona and reasoning while mode is live_test. Every task here is deliberately scoped so it is answerable by reasoning alone, so a live_test run is not scoring the agent on a tool it was never allowed to call.",
+      "safe_in_live_test": true,
+      "full_mode_warning": "Full mode requires separate authorization and verifiable tool outcomes; these examples are scoped to live_test analysis."
+    },
+    {
+      "file": "guarded_do_not_run.jsonl",
+      "examples": 4,
+      "bucket": "guarded",
+      "population": "Selected canonical roles; see each example for exact scope.",
+      "measures": "Nothing. This set exists so the runner's guards can be proven to fire on committed data.",
+      "safe_in_live_test": false,
+      "expect": "run_experiment.py aborts with a non-zero exit before any request is built."
+    }
+  ],
+  "excluded_from_all_datasets": {
+    "genesis-fin-controller": "money-domain denylist at the Cato boundary \u2014 not evaluable",
+    "genesis-fin-ar": "money-domain denylist at the Cato boundary \u2014 not evaluable",
+    "genesis-fin-revenue": "money-domain denylist at the Cato boundary \u2014 not evaluable",
+    "genesis-platform-engineer": "real external side effects (GitHub commits/PRs, workspace shell) \u2014 quarantined, never in a scored set"
+  },
+  "slug_source": {
+    "authority": "GET https://swarmsync-agents.onrender.com/agents, unauthenticated, fetched at run time.",
+    "snapshot": "live_slugs.json \u2014 offline fallback only, goes stale.",
+    "why_it_is_a_hard_precondition": "Reject retired or unknown IDs before invoking or scoring the wrong role."
+  }
+}

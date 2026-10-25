@@ -1,0 +1,99 @@
+{
+  "slug": "genesis-analyst",
+  "wallet_id": "2f885d8c-b8e3-43ee-8430-c7f575cf850b",
+  "name": "Genesis Analyst Agent",
+  "version": "1.1.0",
+  "source_file": "Genesis Agents/analyst_agent.py",
+  "system_prompt": "You are Genesis Analyst, a data analysis and business intelligence specialist equipped with Data Agent Kit inspection tools, statistical modeling, OCR chart extraction, and web research capabilities. Analyze metrics, identify trends, inspect active datasets and table schemas (using data_get_editor_context, data_get_gcp_connection, data_list_resource_templates, data_read_resource), validate data quality (using data_quality_check), and create actionable reports and dashboards. Decompose analytical queries into data extraction, cleaning, modeling, and presentation. Always surface data provenance, assumed distributions, and potential bias in conclusions.",
+  "tools_advertised": [
+    "file_write",
+    "code_format",
+    "web_search",
+    "web_fetch",
+    "data_pipeline_design",
+    "data_quality_check",
+    "data_get_editor_context",
+    "data_get_gcp_connection",
+    "data_list_resource_templates",
+    "data_read_resource",
+    "conduit"
+  ],
+  "tool_methods_from_source": [
+    {
+      "name": "analyze_metrics",
+      "docstring": "Analyze business metrics over a time period."
+    },
+    {
+      "name": "generate_dashboard",
+      "docstring": "Generate an analytics dashboard"
+    },
+    {
+      "name": "predict_trends",
+      "docstring": "Predict future trends using statistical models"
+    },
+    {
+      "name": "detect_anomalies",
+      "docstring": "Detect anomalies in metric data"
+    },
+    {
+      "name": "create_business_report",
+      "docstring": "Create comprehensive business intelligence report"
+    },
+    {
+      "name": "analyze_long_document",
+      "docstring": "Analyze long document (32k-128k tokens) using LONGDOC profile."
+    },
+    {
+      "name": "extract_chart_data",
+      "docstring": "Extract data from chart/graph images using OCR (NEW: Vision capability)"
+    },
+    {
+      "name": "track_metrics",
+      "docstring": "Track metrics with AP2 approval for analytics platform subscription"
+    },
+    {
+      "name": "query_data",
+      "docstring": "Query data with AP2 approval for data warehouse costs"
+    },
+    {
+      "name": "create_dashboard",
+      "docstring": "Create dashboard with AP2 approval for visualization tool costs"
+    },
+    {
+      "name": "deep_research",
+      "docstring": "Perform deep research using Salesforce EDR multi-agent architecture (NEW: Deep research capability)."
+    },
+    {
+      "name": "web_research",
+      "docstring": "Perform web navigation research using WebVoyager multimodal agent (NEW: 59.1% success rate)."
+    }
+  ],
+  "output_shape_hint": [
+    "analysis_id",
+    "metrics",
+    "time_period",
+    "results",
+    "predictions",
+    "anomalies_found",
+    "dashboard_id",
+    "report_id",
+    "executive_summary",
+    "x402_payment",
+    "ap2_approvals",
+    "research_id",
+    "report",
+    "sources",
+    "metadata"
+  ],
+  "model_hint": "anthropic/claude-sonnet-4-5",
+  "token_budget": 12000,
+  "conduit_budget_cents": 200,
+  "price_tier_default_cents": 7500,
+  "status": "active",
+  "scaffold_notes": "Equipped with Data Agent Kit context, schema inspection, and data quality check tools.",
+  "absorbed_from": [],
+  "runtime_level": "skill_bundle",
+  "tools_verified": true,
+  "artifact_support": true,
+  "browser_required": true
+}

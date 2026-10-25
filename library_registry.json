@@ -1,0 +1,685 @@
+{
+ "version": 1,
+ "agents": {
+  "cfo-prime-1792612937044": {
+   "definition_file": "CFO-Prime.md",
+   "agent_id": "4d8aab03-cf34-4a83-9e2e-b569b3e54cfc"
+  },
+  "alex-1792612948701": {
+   "definition_file": "Alex.md",
+   "agent_id": "a49881ae-f27f-4e68-ac38-22314ccb2daa"
+  },
+  "luna-1792612960121": {
+   "definition_file": "Luna.md",
+   "agent_id": "168a9501-60a6-49a8-9de9-6456f53d1c7f"
+  },
+  "archaeologist-1792612972112": {
+   "definition_file": "Archaeologist.md",
+   "agent_id": "b07533b2-999c-4058-ba17-1b10dc2cb487"
+  },
+  "kraken-1792612983734": {
+   "definition_file": "Kraken.md",
+   "agent_id": "95219fa4-b011-4598-ae0c-e9134f07abe3"
+  },
+  "hf-supply-scout-1792612995685": {
+   "definition_file": "HF_supply_scout.md",
+   "agent_id": "737588f7-4c8b-4b76-9bc9-649681b5b7d6"
+  },
+  "agentverse-supply-scout-1792615706869": {
+   "definition_file": "Agentverse_supply_scout.md",
+   "agent_id": "7ec9ff3e-af07-4184-b6ee-b3c6814fcd74"
+  },
+  "atlas-db-1792615715002": {
+   "definition_file": "Atlas-db.md",
+   "agent_id": "9cb7d7dd-2fe8-4fe1-a881-767b4e96f9a2"
+  },
+  "ben-1792615724316": {
+   "definition_file": "Ben.md",
+   "agent_id": "1d7a83b0-580b-4b53-9a65-f2af8bf93a3b"
+  },
+  "bennett-1792615732952": {
+   "definition_file": "Bennett.md",
+   "agent_id": "1f96e1d2-f292-480a-8d2a-41348a610496"
+  },
+  "blake-1792615741869": {
+   "definition_file": "Blake.md",
+   "agent_id": "24a178d8-3040-44b0-baeb-5df30bfe4bd5"
+  },
+  "casey-1792615750749": {
+   "definition_file": "Casey.md",
+   "agent_id": "c3d1fc14-e86c-492c-b06c-b1d77b27a6b2"
+  },
+  "chartres2038-1792615759154": {
+   "definition_file": "Chartres2038.md",
+   "agent_id": "714272b4-a51d-4cd8-99b5-c47940af3068"
+  },
+  "chartres4026-1792615768639": {
+   "definition_file": "Chartres4026.md",
+   "agent_id": "43849f19-e944-4ec9-a131-6121b21a4073"
+  },
+  "cipher-1792615777399": {
+   "definition_file": "Cipher.md",
+   "agent_id": "5c7ad61d-5622-4676-a76e-b41859f10b9b"
+  },
+  "clawgig-supply-scout-1792615786032": {
+   "definition_file": "ClawGig_supply_scout.md",
+   "agent_id": "c60dbe86-0786-4cbd-a0fb-178f6f1be292"
+  },
+  "clive-1792615795792": {
+   "definition_file": "Clive.md",
+   "agent_id": "eab2fdbd-be28-4e5f-9947-ad8ca0f4778b"
+  },
+  "cobra-1792615805157": {
+   "definition_file": "Cobra.md",
+   "agent_id": "6f53c645-9a60-4840-bc91-cf4c67bca545"
+  },
+  "constraintcartographer-1792615814084": {
+   "definition_file": "ConstraintCartographer.md",
+   "agent_id": "408e72f8-44ce-4e67-a6bc-0e3569bfa9f8"
+  },
+  "context-navigator-1792615822770": {
+   "definition_file": "ContextNavigator.md",
+   "agent_id": "32c4d4c0-e8f5-46f2-bb40-21c86a2f7ccc"
+  },
+  "cora-1792615831436": {
+   "definition_file": "Cora.md",
+   "agent_id": "608112b5-5aab-4cd3-b7cc-ab103e28d80e"
+  },
+  "darkmirror-1792615840271": {
+   "definition_file": "DarkMirror.md",
+   "agent_id": "fed511a4-6841-4da9-9601-96c901eba89a"
+  },
+  "dreamtriad-1792615849219": {
+   "definition_file": "DreamTriad.md",
+   "agent_id": "9b0fb974-aaa5-4589-9759-911f09b8d73f"
+  },
+  "e4l-accounting-close-controller-1792617299983": {
+   "definition_file": "E4L-Accounting-Close-Controller.md",
+   "agent_id": "88529ea7-a0c5-47ed-8366-0052bf0de4b6"
+  },
+  "e4l-business-law-1792617310306": {
+   "definition_file": "E4L-Business-Law.md",
+   "agent_id": "dba86172-10f8-44e2-8010-251036698769"
+  },
+  "e4l-evidence-auditor-1792617320376": {
+   "definition_file": "E4L-Evidence-Auditor.md",
+   "agent_id": "50c5a450-47aa-4f63-b4ff-51ec9dca9d50"
+  },
+  "e4l-financial-systems-architect-1792617329199": {
+   "definition_file": "E4L-Financial-Systems-Architect.md",
+   "agent_id": "126a71af-200e-4901-b7b4-4a9d8b2e8b44"
+  },
+  "e4l-legal-closing-controller-1792617338180": {
+   "definition_file": "E4L-Legal-Closing-Controller.md",
+   "agent_id": "3ad1724f-211d-4921-9ee1-046d5a3cec81"
+  },
+  "e4l-tax-structure-validator-1792617347406": {
+   "definition_file": "E4L-Tax-Structure-Validator.md",
+   "agent_id": "0c8c8283-dfbc-405e-b627-181da644d2d8"
+  },
+  "elevenlabs-supply-scout-1792615907996": {
+   "definition_file": "ElevenLabs_supply_scout.md",
+   "agent_id": "58e52400-4528-4709-851f-47da3ee5926f"
+  },
+  "emily-1792615917091": {
+   "definition_file": "Emily.md",
+   "agent_id": "a43fc790-1603-48dd-a4a7-12045a855573"
+  },
+  "empathyarchitect-1792615926365": {
+   "definition_file": "EmpathyArchitect.md",
+   "agent_id": "198326c5-448a-41dc-b800-f123bfd95e1a"
+  },
+  "epistemicauditor-1792615935157": {
+   "definition_file": "EpistemicAuditor.md",
+   "agent_id": "c764f388-eb48-4b8b-8d63-5e684331465e"
+  },
+  "forge-1792615943929": {
+   "definition_file": "Forge.md",
+   "agent_id": "9e159fd7-ff01-477c-b0d1-bb2010b79753"
+  },
+  "foss-1792615952124": {
+   "definition_file": "Foss.md",
+   "agent_id": "ad82d4ee-a30c-4133-893f-c73f1b283416"
+  },
+  "frank-1792615961106": {
+   "definition_file": "Frank.md",
+   "agent_id": "e775af27-80d5-46b3-b51e-2841e4361766"
+  },
+  "futurescout-1792615969757": {
+   "definition_file": "FutureScout.md",
+   "agent_id": "67dafb1f-2d0e-4778-8b2a-314c1b18a3bf"
+  },
+  "genesisagent-1792615978350": {
+   "definition_file": "GenesisAgent.md",
+   "agent_id": "1bef4c2a-9782-4a19-81b3-362ce53acca5"
+  },
+  "ghost-1792615986628": {
+   "definition_file": "Ghost.md",
+   "agent_id": "82297e76-078d-4867-8be4-a9f008aa0361"
+  },
+  "github-actions-scout-1792615995599": {
+   "definition_file": "GitHub_Actions_scout.md",
+   "agent_id": "99d57c89-85fb-4c26-b840-d43a7fabf0d8"
+  },
+  "hexlens-1792616003981": {
+   "definition_file": "HexLens.md",
+   "agent_id": "a8d85f3d-777e-4af6-9b50-57af1f81b2b2"
+  },
+  "hudson-1792616012718": {
+   "definition_file": "Hudson.md",
+   "agent_id": "87b46304-9741-4645-813c-d89f200631be"
+  },
+  "ideamatrix-1792616021105": {
+   "definition_file": "IdeaMatrix.md",
+   "agent_id": "c5b5fe0e-3d45-425f-a6bb-e59e90005471"
+  },
+  "jackson-1792616030174": {
+   "definition_file": "Jackson.md",
+   "agent_id": "caeaa911-a60b-414a-a894-19bae7639713"
+  },
+  "jason-1792616039090": {
+   "definition_file": "Jason.md",
+   "agent_id": "1afc951e-5200-4540-978f-8239144a7b0a"
+  },
+  "jules-1792616047849": {
+   "definition_file": "Jules.md",
+   "agent_id": "841f38b2-96f3-4566-8cfc-7ab556ed6259"
+  },
+  "marcus-1792616056475": {
+   "definition_file": "Marcus.md",
+   "agent_id": "0aee83b4-37d0-44c5-9cc8-3dea3c1a96f8"
+  },
+  "marcuschen-swarmscout-1792616065759": {
+   "definition_file": "MarcusChen_SwarmScout.md",
+   "agent_id": "96f25285-5ce6-4c67-8e6d-0384e116fdb7"
+  },
+  "mindstudio-supply-scout-1792616074261": {
+   "definition_file": "MindStudio_supply_scout.md",
+   "agent_id": "3cb41c91-6d2e-491b-951f-e555a2d2209d"
+  },
+  "morgan-1792616082461": {
+   "definition_file": "Morgan.md",
+   "agent_id": "312b9f23-4f72-44b9-adce-43b6b2ff81c5"
+  },
+  "nathan-1792616091189": {
+   "definition_file": "Nathan.md",
+   "agent_id": "46095217-4fe5-4c88-8498-6f0b7158bccd"
+  },
+  "nova-1792616099809": {
+   "definition_file": "Nova.md",
+   "agent_id": "ece6d868-292c-4420-b407-8af6bae5149a"
+  },
+  "nullagent-1792616108775": {
+   "definition_file": "NullAgent.md",
+   "agent_id": "815174c9-e1f5-4ecd-9235-9bf007d83e59"
+  },
+  "olas-supply-scout-1792616117740": {
+   "definition_file": "Olas_supply_scout.md",
+   "agent_id": "be0108cd-73bb-467c-b40e-756d97f0bcf2"
+  },
+  "paradoxengine-1792616126958": {
+   "definition_file": "ParadoxEngine.md",
+   "agent_id": "dd76a9cb-2fb5-445f-8c87-2ffce69c94bc"
+  },
+  "phantom-1792616135641": {
+   "definition_file": "Phantom.md",
+   "agent_id": "c0be6ca7-3531-45e0-92cb-5cc5985386df"
+  },
+  "qa-verifier-1792616144047": {
+   "definition_file": "QA_verifier.md",
+   "agent_id": "4afafc94-71fe-41a1-a3fe-93cd58d861c3"
+  },
+  "quantifier-1792616153418": {
+   "definition_file": "Quantifier.md",
+   "agent_id": "c7dc0197-e614-4bad-b3c2-b012141db76a"
+  },
+  "quinn-1792616163104": {
+   "definition_file": "Quinn.md",
+   "agent_id": "cb913e23-518a-4262-b468-9ce2f25be986"
+  },
+  "raven-1792616171945": {
+   "definition_file": "Raven.md",
+   "agent_id": "46bf310b-4e0f-43a0-91ce-39f691c3bd39"
+  },
+  "reid-1792616180587": {
+   "definition_file": "Reid.md",
+   "agent_id": "817fc731-d1f9-4f7c-b2ab-51f17a5a9f54"
+  },
+  "remixforge-1792616189830": {
+   "definition_file": "RemixForge.md",
+   "agent_id": "3c725f1d-a810-4f1d-aabd-e93c11bf712c"
+  },
+  "riley-1792616198196": {
+   "definition_file": "Riley.md",
+   "agent_id": "8b1b13c7-d59f-4e2b-b057-5a7c6819c404"
+  },
+  "scout-1792616206871": {
+   "definition_file": "Scout.md",
+   "agent_id": "799cd016-4a9a-4241-aef2-2960723f2445"
+  },
+  "shane-1792616215777": {
+   "definition_file": "Shane.md",
+   "agent_id": "ef838763-55b4-4586-8f12-c0a73278d301"
+  },
+  "singularitynet-scout-1792616224772": {
+   "definition_file": "SingularityNET_scout.md",
+   "agent_id": "25cb6e6a-aa61-41f9-bbd4-023cf9681e67"
+  },
+  "sospec-1792616234064": {
+   "definition_file": "SoSpec.md",
+   "agent_id": "c12a05c7-4293-4a34-b5f8-d5580d05c968"
+  },
+  "spiderspark-1792616242761": {
+   "definition_file": "SpiderSpark.md",
+   "agent_id": "a2c16ced-0a07-4112-a0bc-0c5c591ef12b"
+  },
+  "sterling-1792616252948": {
+   "definition_file": "Sterling.md",
+   "agent_id": "7f5c8971-b1a2-4f41-857e-69a226f72cb6"
+  },
+  "striker-1792616261973": {
+   "definition_file": "Striker.md",
+   "agent_id": "73e44a71-5c16-4b64-bd5f-a4c29d0ca2f4"
+  },
+  "supabase-guardian-1792616270689": {
+   "definition_file": "SupabaseGuardian.md",
+   "agent_id": "83e98647-0e3d-4c17-9962-33c56a6adb9d"
+  },
+  "swarmsage-1792616279482": {
+   "definition_file": "SwarmSage.md",
+   "agent_id": "604beba0-62e5-426f-a6a1-15dda1f7b757"
+  },
+  "swarmsync2242-1792616288346": {
+   "definition_file": "SwarmSync2242.md",
+   "agent_id": "48fd2031-0add-44e8-a741-23857e1e11c5"
+  },
+  "swarmsync4026-1792616298190": {
+   "definition_file": "SwarmSync4026.md",
+   "agent_id": "7906e829-4412-4eab-b1a5-f6e84e0fdb50"
+  },
+  "swarmsync4027-1792616307059": {
+   "definition_file": "SwarmSync4027.md",
+   "agent_id": "467e0e12-970a-4b4b-8ddc-5748149c28d8"
+  },
+  "systemsmapper-1792616315856": {
+   "definition_file": "SystemsMapper.md",
+   "agent_id": "501a6219-419a-4b88-9a7a-bcc845fffbe3"
+  },
+  "taylor-1792616325584": {
+   "definition_file": "Taylor.md",
+   "agent_id": "de2cbaec-a6d9-4473-a646-3d23e24d4050"
+  },
+  "tom-swarmsync-closer-1792616335036": {
+   "definition_file": "Tom_SwarmSync_Closer.md",
+   "agent_id": "2a86c4d6-24e6-411a-a523-a3f76823200e"
+  },
+  "viper-1792616343796": {
+   "definition_file": "Viper.md",
+   "agent_id": "d288ecab-3d23-4f38-9326-f0f09872d9f2"
+  },
+  "voiceflow-scout-1792616352764": {
+   "definition_file": "Voiceflow_scout.md",
+   "agent_id": "71e8cb26-8f4d-46b4-bbe1-d81ce43dbbda"
+  },
+  "warden-1792616361726": {
+   "definition_file": "Warden.md",
+   "agent_id": "e4ba30b2-1d28-4835-968c-ea69b9063861"
+  },
+  "wiggum-1792616371100": {
+   "definition_file": "Wiggum.md",
+   "agent_id": "96f03c92-2518-44e5-a782-e1e31ce0599a"
+  },
+  "worker-scaler-1792616379691": {
+   "definition_file": "WorkerScaler.md",
+   "agent_id": "4f0e7b44-73f6-40b3-a329-960c08699e61"
+  },
+  "zane-1792616388548": {
+   "definition_file": "Zane.md",
+   "agent_id": "3699e8e4-638a-44ae-92b8-537b6d0370eb"
+  },
+  "affiliatescout-1792616398120": {
+   "definition_file": "affiliate-scout.md",
+   "agent_id": "24ba7c28-22e6-445b-8f38-b86de6c04fa2"
+  },
+  "affinity-1792616410350": {
+   "definition_file": "affinity.md",
+   "agent_id": "269057dc-ec56-4490-b790-8b08240e88e1"
+  },
+  "api-integration-scout-1792616419730": {
+   "definition_file": "api_integration_scout.md",
+   "agent_id": "50b3188a-b777-432c-9f67-a57061bc8479"
+  },
+  "app-tester-1792616428329": {
+   "definition_file": "app-tester.md",
+   "agent_id": "861aebc5-6929-4954-887a-d651e00223c5"
+  },
+  "arbitrage-orchestrator-1792616437913": {
+   "definition_file": "arbitrage-orchestrator.md",
+   "agent_id": "6abc58ee-9f9b-4429-b996-13e967e7b7ab"
+  },
+  "archer-1792616446401": {
+   "definition_file": "archer-sdk-registrar.md",
+   "agent_id": "b54f909f-f9fe-42bf-a3ba-12781612762f"
+  },
+  "archer-1792616454828": {
+   "definition_file": "archer.md",
+   "agent_id": "5845f40a-a662-4acd-a253-2804bbed1237"
+  },
+  "aria-1792616463984": {
+   "definition_file": "aria.md",
+   "agent_id": "45f6211b-1c33-4ef7-9613-70a3fa7dbc50"
+  },
+  "atlas-1792616472638": {
+   "definition_file": "atlas-pipeline-orchestrator.md",
+   "agent_id": "a3c58a93-b7af-4999-a89e-0105f83296c6"
+  },
+  "atlas-validation-1792616481248": {
+   "definition_file": "atlas-validation.md",
+   "agent_id": "acadeee1-021b-4d9b-9e1b-84a33e3ecfc3"
+  },
+  "audit-agent-1792616489756": {
+   "definition_file": "audit-agent.md",
+   "agent_id": "cb231b73-8413-497e-b9e5-df47f692b2f8"
+  },
+  "bach-1792617356111": {
+   "definition_file": "bach.md",
+   "agent_id": "e73febf4-92c1-42ac-9cee-aaed6c5ea1d3"
+  },
+  "backend-architect-1792616505954": {
+   "definition_file": "backend-architect.md",
+   "agent_id": "d427eafc-0466-40be-aa00-54cdbc27460e"
+  },
+  "blake-1792616514553": {
+   "definition_file": "blake-error-recovery.md",
+   "agent_id": "5d9ca9dd-560d-4793-90a9-77dca0ad1949"
+  },
+  "bob-1792616523400": {
+   "definition_file": "bob.md",
+   "agent_id": "cfde6d58-366d-42d9-adcd-09c7502aed19"
+  },
+  "books-cpa-1792617394519": {
+   "definition_file": "books-cpa.md",
+   "agent_id": "d5871b41-b17e-404c-855d-021c9ed943ce"
+  },
+  "bug-triage-scout-1792616540168": {
+   "definition_file": "bug_triage_scout.md",
+   "agent_id": "a6fa7aea-c0a2-483a-a75a-d5b192df05aa"
+  },
+  "business-panel-experts-1792616548491": {
+   "definition_file": "business-panel-experts.md",
+   "agent_id": "22611c38-4397-43c2-8bc1-463289f0eebc"
+  },
+  "casey-1792616557135": {
+   "definition_file": "casey-session-manager.md",
+   "agent_id": "9da27d0e-80c0-4a03-baea-ae136801fef4"
+  },
+  "chief-of-staff-1792616565900": {
+   "definition_file": "chief-of-staff.md",
+   "agent_id": "ce2ae98f-f7a5-4461-8efd-d7068a32c16e"
+  },
+  "chrom-1792616574737": {
+   "definition_file": "chrom.md",
+   "agent_id": "864dc390-71f7-42d8-93a2-e2eae3428603"
+  },
+  "code-fix-scout-1792616583897": {
+   "definition_file": "code-fix_scout.md",
+   "agent_id": "5e58dfc7-10a7-4d45-8d28-d16d812ad0e9"
+  },
+  "emily-1792616592547": {
+   "definition_file": "code-reviewer.md",
+   "agent_id": "5f64b191-7c44-4bfe-a886-6749be4a18df"
+  },
+  "copywriting-scout-1792616601280": {
+   "definition_file": "copywriting_scout.md",
+   "agent_id": "aedad97f-50ee-4537-8df2-1c63bf086cce"
+  },
+  "data-cleanup-scout-1792616610248": {
+   "definition_file": "data_cleanup_scout.md",
+   "agent_id": "bb84d440-d8dd-4697-b2ff-96965cabefa2"
+  },
+  "dbmaster-1792616618832": {
+   "definition_file": "dbmaster.md",
+   "agent_id": "3093061d-253e-4e6a-8362-a8fa23cddff6"
+  },
+  "deal-execution-expert-1792616627204": {
+   "definition_file": "deal-execution-expert.md",
+   "agent_id": "cfca569c-29d7-4b14-b23d-f71ca8417cf3"
+  },
+  "deal-closer-1792616636188": {
+   "definition_file": "deal_closer.md",
+   "agent_id": "1091eedc-d253-4fe9-9354-172c1ea8d201"
+  },
+  "deep-research-agent-1792616645034": {
+   "definition_file": "deep-research.md",
+   "agent_id": "44973bbc-b194-4c04-9e94-d3710901b5a5"
+  },
+  "demand-discovery-expert-1792616653806": {
+   "definition_file": "demand-discovery-expert.md",
+   "agent_id": "14ae3bb5-0795-4201-9233-1ddf0d7f122c"
+  },
+  "design-director-1792616662707": {
+   "definition_file": "design-director.md",
+   "agent_id": "d5b664ff-010e-48d2-a588-cd0ef7b07b9d"
+  },
+  "devon-1792616671471": {
+   "definition_file": "devon-api-integrator.md",
+   "agent_id": "d3a1cd88-790c-4547-abe9-71799ff7253c"
+  },
+  "devon-1792616679856": {
+   "definition_file": "devon.md",
+   "agent_id": "127010f3-44c6-4a58-8243-76290b0b835b"
+  },
+  "devops-architect-1792616688891": {
+   "definition_file": "devops-architect.md",
+   "agent_id": "74d79eb7-be91-4079-ada2-d039501c508a"
+  },
+  "fixer-jax-1792616697536": {
+   "definition_file": "fixer-jax.md",
+   "agent_id": "645ae190-1159-473e-8bb7-4b3dedfe6b11"
+  },
+  "frontend-architect-1792616707262": {
+   "definition_file": "frontend-architect.md",
+   "agent_id": "774c5bb3-85c7-415b-9d38-b2f804a287c7"
+  },
+  "harper-1792616716909": {
+   "definition_file": "harper-huggingface-specialist.md",
+   "agent_id": "fcb8029f-c2ed-4a91-ba63-610604ee8e26"
+  },
+  "image-gen-scout-1792616726198": {
+   "definition_file": "image-gen_scout.md",
+   "agent_id": "5618f2c8-d92a-46dd-b093-f9140cfffdd9"
+  },
+  "irs-form-finder-1792617403361": {
+   "definition_file": "irs-form-finder.md",
+   "agent_id": "ac04fae3-31cb-4b0e-a68c-1671fadfc08d"
+  },
+  "jordan-1792616742658": {
+   "definition_file": "jordan-community-engager.md",
+   "agent_id": "cc5758c6-f3da-410e-a156-0e33fe13af4a"
+  },
+  "learning-guide-1792616751337": {
+   "definition_file": "learning-guide.md",
+   "agent_id": "b8bda153-e7e7-49cf-b1b3-c3ea823599fc"
+  },
+  "marcus-1792616759723": {
+   "definition_file": "marcus-moltbook-engager.md",
+   "agent_id": "69a5f02d-2ab0-461e-9b3c-c5ba0cfa9056"
+  },
+  "margin-logger-expert-1792616769075": {
+   "definition_file": "margin-logger-expert.md",
+   "agent_id": "7fa9224f-b1b3-4347-a442-aa501b66311f"
+  },
+  "margin-logger-1792616778076": {
+   "definition_file": "margin_logger.md",
+   "agent_id": "a6afc583-da93-4366-ab28-17bc55a18779"
+  },
+  "mark-1792616786895": {
+   "definition_file": "mark.md",
+   "agent_id": "ea4db611-c9dd-4a1b-a0d2-9dfe6b586a4d"
+  },
+  "matcher-router-expert-1792616795690": {
+   "definition_file": "matcher-router-expert.md",
+   "agent_id": "d468d43b-57e1-46fb-859f-583b670b7eed"
+  },
+  "matcher-1792616805365": {
+   "definition_file": "matcher.md",
+   "agent_id": "1e7b4d64-db09-48ac-9e24-7184191f76da"
+  },
+  "n8n-workflow-scout-1792616814201": {
+   "definition_file": "n8n_workflow_scout.md",
+   "agent_id": "8935849e-68df-4de1-8ff5-a0fa1856893f"
+  },
+  "nexus-1792616823203": {
+   "definition_file": "nexus.md",
+   "agent_id": "4e854e12-8b0e-4f32-9b53-ab92d466f4c6"
+  },
+  "nova-1792616832610": {
+   "definition_file": "nova-content-creator.md",
+   "agent_id": "b3af9f61-172e-44a1-83ba-2f8d9759a942"
+  },
+  "performance-engineer-1792616841506": {
+   "definition_file": "performance-engineer.md",
+   "agent_id": "2fe17606-121b-469a-933c-68ad27f1f6ec"
+  },
+  "photo-agent-1792616850774": {
+   "definition_file": "photo-agent.md",
+   "agent_id": "4c8b31be-b0ce-42f1-818e-4227f798bf21"
+  },
+  "playwright-sentinel-1792617412788": {
+   "definition_file": "playwright-sentinel.md",
+   "agent_id": "4b16075b-ae64-49cb-b631-098aab8d13a8"
+  },
+  "pm-agent-1792616867859": {
+   "definition_file": "pm-agent.md",
+   "agent_id": "7af6ab5e-0797-4635-9e9b-a471086b8aa9"
+  },
+  "python-expert-1792616876168": {
+   "definition_file": "python-expert.md",
+   "agent_id": "1347d490-0dc3-4d96-9196-c3cbf45e6fef"
+  },
+  "quality-engineer-1792616885305": {
+   "definition_file": "quality-engineer.md",
+   "agent_id": "f7694313-3d97-456f-afe9-61296c82c955"
+  },
+  "quinn-1792616894327": {
+   "definition_file": "quinn-campaign-monitor.md",
+   "agent_id": "de864acd-4b55-4219-bbea-0ecb3e37cc07"
+  },
+  "ralph-wiggum-1-1792616903024": {
+   "definition_file": "ralph-wiggum-1.md",
+   "agent_id": "711847d7-11c7-4524-984d-362e6d6d4001"
+  },
+  "ralph-wiggum-1792616911745": {
+   "definition_file": "ralph-wiggum.md",
+   "agent_id": "0ca97ecb-a038-4981-8f93-0f4d12da24cd"
+  },
+  "refactoring-expert-1792616920338": {
+   "definition_file": "refactoring-expert.md",
+   "agent_id": "83497fa0-b78f-4a52-869b-1606f9e29300"
+  },
+  "requirements-analyst-1792616929429": {
+   "definition_file": "requirements-analyst.md",
+   "agent_id": "ebf53cc9-29ed-44cb-8e1c-a94fc91f3d43"
+  },
+  "research-scout-1792616938671": {
+   "definition_file": "research_scout.md",
+   "agent_id": "08cb820b-b128-4cbf-85e6-5bc41bcb5dd5"
+  },
+  "riley-1792616947619": {
+   "definition_file": "riley-platform-registrar.md",
+   "agent_id": "bec185c9-8522-4f97-879c-3d7c03a85d4b"
+  },
+  "root-cause-analyst-1792616956690": {
+   "definition_file": "root-cause-analyst.md",
+   "agent_id": "99d398b3-24eb-4bd9-9e7b-168fc665a197"
+  },
+  "rowan-1792616965301": {
+   "definition_file": "rowan.md",
+   "agent_id": "a3646b9a-5cbe-4910-bb6f-85693795bcd9"
+  },
+  "sage-1792616973405": {
+   "definition_file": "sage-github-outreach.md",
+   "agent_id": "fbf7abca-5295-4603-b118-62bb29144093"
+  },
+  "security-engineer-1792616982217": {
+   "definition_file": "security-engineer.md",
+   "agent_id": "0f08ec98-4412-4e5d-9819-744f2f4ce01e"
+  },
+  "security-reviewer-1792616991018": {
+   "definition_file": "security-reviewer.md",
+   "agent_id": "751d1b92-373c-430d-9887-d14283d55fd6"
+  },
+  "self-review-1792616999828": {
+   "definition_file": "self-review.md",
+   "agent_id": "3803cf58-4188-47d3-8680-eae69f63715e"
+  },
+  "socratic-mentor-1792617009379": {
+   "definition_file": "socratic-mentor.md",
+   "agent_id": "b41416a1-32e4-4e88-95f2-427d26ae1f47"
+  },
+  "stella-1792617019378": {
+   "definition_file": "stella.md",
+   "agent_id": "4d6d3233-fbb7-45f6-9dfe-347fc25ca4c3"
+  },
+  "stone-spec-expert-1792617028072": {
+   "definition_file": "stone-spec-expert.md",
+   "agent_id": "3b7d0548-ffe8-4cd1-ad0c-87cacd206921"
+  },
+  "subagent-1-1792617037260": {
+   "definition_file": "subagent-1.md",
+   "agent_id": "f365635e-77fb-4283-bb8d-613e4be3bd0b"
+  },
+  "subagent-1792617045904": {
+   "definition_file": "subagent.md",
+   "agent_id": "788dd94e-2293-4279-9d3e-b06ec114e3f3"
+  },
+  "summarization-scout-1792617054921": {
+   "definition_file": "summarization_scout.md",
+   "agent_id": "b0136c88-1cd2-4775-ba99-df6934a5cec1"
+  },
+  "supply-discovery-expert-1792617064467": {
+   "definition_file": "supply-discovery-expert.md",
+   "agent_id": "c89c7bef-6145-4dc3-b944-049a4f3b5843"
+  },
+  "system-architect-1792617073277": {
+   "definition_file": "system-architect.md",
+   "agent_id": "83dbed21-320d-4166-8b96-854003ab6346"
+  },
+  "technical-writer-1792617082418": {
+   "definition_file": "technical-writer.md",
+   "agent_id": "6d7bf8d9-bd95-4457-838f-06e644aa838a"
+  },
+  "test-writer-1792617090914": {
+   "definition_file": "test-writer.md",
+   "agent_id": "29521c76-e483-4028-b443-8ac135b7033c"
+  },
+  "the-fixer-1792617099979": {
+   "definition_file": "the-fixer.md",
+   "agent_id": "43868340-3eb9-47de-88e7-083fcd59d720"
+  },
+  "thomas-1792617108693": {
+   "definition_file": "thomas.md",
+   "agent_id": "6e4113f8-9976-458e-b32c-40ba6a9c4453"
+  },
+  "tom-1792617117242": {
+   "definition_file": "tom.md",
+   "agent_id": "2234bce5-fb25-46cb-94e0-8ecf9c682a67"
+  },
+  "verification-qa-expert-1792617125824": {
+   "definition_file": "verification-qa-expert.md",
+   "agent_id": "8165116e-0b16-4259-8731-a3dfd8223571"
+  },
+  "voice-scout-1792617135030": {
+   "definition_file": "voice_scout.md",
+   "agent_id": "82ae5326-1898-4f66-8f37-d2a9e093c8d0"
+  },
+  "worker-1792617144207": {
+   "definition_file": "worker.md",
+   "agent_id": "e63ac648-552d-4324-b04b-6ac6ad46d8b9"
+  },
+  "workflow-automation-scout-1792617153020": {
+   "definition_file": "workflow_automation_scout.md",
+   "agent_id": "9788f0b5-93dc-4dca-b2eb-53d9e6a3272c"
+  }
+ }
+}

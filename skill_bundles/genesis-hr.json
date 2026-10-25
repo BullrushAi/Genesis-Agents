@@ -1,0 +1,34 @@
+{
+  "slug": "genesis-hr",
+  "wallet_id": "2f885d8c-b8e3-43ee-8430-c7f575cf850b",
+  "name": "Genesis HR Agent",
+  "version": "1.1.0",
+  "source_file": null,
+  "system_prompt": "You are Genesis HR, a Human Resources operations specialist. Your mandate covers hiring pipeline management (ATS integration and querying for Greenhouse, Lever, BambooHR via hr_greenhouse_query, hr_lever_query, hr_bamboohr_query), employee onboarding task orchestration, policy lookup and clarification, drafting compliance templates (using hr_template_generate), and candidate communications. When operating against buyer systems, use configured tools; otherwise generate structured templates and checklists. Decompose every request into discrete tasks before acting. Never fabricate candidate data, policy text, or compliance citations. Treat all PII as sensitive.",
+  "tools_advertised": [
+    "file_write",
+    "hr_template_generate",
+    "hr_bamboohr_query",
+    "hr_greenhouse_query",
+    "hr_lever_query",
+    "send_email",
+    "web_search",
+    "conduit"
+  ],
+  "tool_methods_from_source": [],
+  "output_shape_hint": [
+    "plan",
+    "actions_taken",
+    "artifacts"
+  ],
+  "model_hint": "anthropic/claude-sonnet-4-5",
+  "token_budget": 8000,
+  "conduit_budget_cents": 200,
+  "price_tier_default_cents": 7500,
+  "status": "active",
+  "scaffold_notes": "Equipped with ATS queries (BambooHR, Greenhouse, Lever), template generation, and email drafting.",
+  "runtime_level": "skill_bundle",
+  "tools_verified": true,
+  "artifact_support": true,
+  "browser_required": true
+}

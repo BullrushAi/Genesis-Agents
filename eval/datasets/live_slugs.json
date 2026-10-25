@@ -1,0 +1,62 @@
+{
+  "authority": "canonical_profiles.CANONICAL_SLUGS",
+  "agents": [
+    {
+      "slug": "genesis-automation-architect"
+    },
+    {
+      "slug": "genesis-commercial-growth"
+    },
+    {
+      "slug": "genesis-data-intelligence"
+    },
+    {
+      "slug": "genesis-execution-control"
+    },
+    {
+      "slug": "genesis-fin-ap"
+    },
+    {
+      "slug": "genesis-fin-ar"
+    },
+    {
+      "slug": "genesis-fin-close"
+    },
+    {
+      "slug": "genesis-fin-controller"
+    },
+    {
+      "slug": "genesis-fin-fpa"
+    },
+    {
+      "slug": "genesis-fin-payroll-tax"
+    },
+    {
+      "slug": "genesis-fin-reconciliation"
+    },
+    {
+      "slug": "genesis-fin-revenue"
+    },
+    {
+      "slug": "genesis-fin-treasury"
+    },
+    {
+      "slug": "genesis-integration-architect"
+    },
+    {
+      "slug": "genesis-knowledge-evidence"
+    },
+    {
+      "slug": "genesis-legal-risk"
+    },
+    {
+      "slug": "genesis-people-operations"
+    },
+    {
+      "slug": "genesis-platform-engineer"
+    },
+    {
+      "slug": "genesis-security-identity"
+    }
+  ]
+}
