@@ -51,6 +51,8 @@ def test_provider_reuses_one_http_client_for_every_poll(monkeypatch):
         return client
 
     monkeypatch.setattr(ap.httpx, "AsyncClient", counting_client)
+    # This test is about client reuse, so an idle agent is polled every tick here (no idle back-off).
+    monkeypatch.setenv("GENESIS_AP2_PROVIDER_IDLE_POLL_SECONDS", "0")
 
     slug = sorted(CANONICAL_SLUGS)[0]
     creds = [ap.AgentCredential("cert-staging", slug, AGENT_ID, "secret-key", frozenset({ap.SELLER}))]
