@@ -4203,11 +4203,13 @@ async def evaluate_negotiation(slug: str, request: NegotiateRequest) -> dict:
 
     evidence_text = " ".join([request.requested_service or "", requirements_str, notes_str])
     if research_evidence.needs_evidence(slug, evidence_text):
-        hits = await research_evidence.search_hits(
+        # The same check delivery applies (readable fetched pages, not bare search hits), so an accepted
+        # offer is one the agent can deliver; otherwise the buyer's escrow would sit until a manual refund.
+        found = await research_evidence.gather_sources(
             research_evidence.search_query(request.requested_service or "", evidence_text)
         )
-        if len(hits) < research_evidence.MIN_SOURCES:
-            logger.info("evidence probe for %s found %d sources; declining", slug, len(hits))
+        if len(found) < research_evidence.MIN_SOURCES:
+            logger.info("evidence probe for %s found %d usable sources; declining", slug, len(found))
             return {"status": "REJECTED", "price": request.budget, "notes": research_evidence.DECLINE_NOTE}
 
     negotiation_prompt = (

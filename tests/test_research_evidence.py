@@ -53,6 +53,11 @@ class TestNeedsEvidence:
     def test_ordinary_jobs_do_not(self):
         assert not rev.needs_evidence("genesis-fin-ap", "Summarise: SwarmSync is an open agent marketplace.")
 
+    def test_source_code_and_data_source_jobs_are_not_research(self):
+        for job in ("Review this source code", "Audit our open source licence", "Map the data source fields",
+                    "Add a reference to the config", "Cite the line numbers you changed"):
+            assert not rev.needs_evidence("genesis-code-reviewer", job), job
+
 
 class TestGatherSources:
     def test_keeps_readable_pages_up_to_the_cap(self):
@@ -96,6 +101,17 @@ class TestCitations:
         )
         assert rev.cited_sources(out, srcs) == [srcs[0].url, srcs[1].url]
         assert rev.cited_sources("Claims with [1] [2] but no URLs.", srcs) == []
+
+    def test_a_bare_sources_list_is_not_a_citation(self):
+        srcs = sources(2)
+        out = f"Findings with no inline markers.\n\nSources\n[1] {srcs[0].url}\n[2] {srcs[1].url}"
+        assert rev.cited_sources(out, srcs) == []
+
+    def test_a_url_prefix_does_not_count_as_the_shorter_source(self):
+        srcs = [rev.Source(url="https://example.org/a", title="A", text=PAGE),
+                rev.Source(url="https://example.org/ab", title="AB", text=PAGE)]
+        out = "Claim one [1]. Claim two [2].\n\nSources\n[2] https://example.org/ab"
+        assert rev.cited_sources(out, srcs) == ["https://example.org/ab"]
 
     def test_prompt_carries_numbered_sources_and_the_citation_rule(self):
         prompt = rev.evidence_prompt("Service requested: research summary", sources(2))
@@ -224,28 +240,44 @@ class TestNegotiationDecline:
     def test_declines_research_with_nothing_to_cite_without_calling_the_llm(self, monkeypatch):
         import main
 
-        async def no_hits(query, search=None):
+        async def no_hits(query, search=None, fetch=None):
             return []
 
         async def llm(*args, **kwargs):
             raise AssertionError("the LLM must not be asked to accept unevidenced research")
 
-        monkeypatch.setattr(rev, "search_hits", no_hits)
+        monkeypatch.setattr(rev, "gather_sources", no_hits)
         monkeypatch.setattr(main, "call_llm_router", llm)
         decision = run(main.evaluate_negotiation(RESEARCH_SLUG, self._request("short research summary")))
         assert decision["status"] == "REJECTED"
         assert decision["notes"] == rev.DECLINE_NOTE
 
+    def test_search_hits_that_cannot_be_read_still_decline(self, monkeypatch):
+        """Delivery needs readable pages, so the negotiation probe does too; bare hits would strand escrow."""
+        import main
+
+        async def llm(*args, **kwargs):
+            raise AssertionError("must decline before the LLM")
+
+        async def unreadable(**kwargs):
+            return {"ok": True, "status_code": 403, "text": PAGE}
+
+        monkeypatch.setattr(rev, "_default_search", fake_search(["https://example.org/a", "https://example.org/b"]))
+        monkeypatch.setattr(rev, "_default_fetch", unreadable)
+        monkeypatch.setattr(main, "call_llm_router", llm)
+        decision = run(main.evaluate_negotiation(RESEARCH_SLUG, self._request("short research summary")))
+        assert decision["status"] == "REJECTED"
+
     def test_research_with_sources_goes_to_the_llm(self, monkeypatch):
         import main
 
-        async def hits(query, search=None):
-            return [{"url": "https://example.org/a", "title": "A"}, {"url": "https://example.org/b", "title": "B"}]
+        async def hits(query, search=None, fetch=None):
+            return sources(2)
 
         async def llm(system, prompt):
             return '{"status": "ACCEPTED", "price": 0.2, "notes": "ok"}'
 
-        monkeypatch.setattr(rev, "search_hits", hits)
+        monkeypatch.setattr(rev, "gather_sources", hits)
         monkeypatch.setattr(main, "call_llm_router", llm)
         monkeypatch.setattr(main, "_router_result_payload", lambda raw: (raw, {}), raising=False)
         decision = run(main.evaluate_negotiation(RESEARCH_SLUG, self._request("short research summary")))

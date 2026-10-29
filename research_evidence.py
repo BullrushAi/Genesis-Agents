@@ -23,7 +23,11 @@ MIN_SOURCE_TEXT = 400
 QUERY_CHARS = 200
 
 EVIDENCE_SLUG_WORDS = ("research", "evidence", "knowledge")
-_EVIDENCE_JOB = re.compile(r"\b(research|sources?|citations?|cite|cited|references?|literature)\b", re.I)
+# Narrow on purpose: "source code", "open source" and "data source" are ordinary jobs, not research.
+_EVIDENCE_JOB = re.compile(
+    r"\bresearch\b|\bcitations?\b|\bcite (?:your |the |its )?sources\b|\bwith sources\b|\bliterature (?:review|search)\b",
+    re.I,
+)
 
 DECLINE_NOTE = (
     "I couldn't find published sources to back this research right now, so I won't take payment for "
@@ -138,11 +142,24 @@ CITATION_CORRECTION = (
 )
 
 
+_SOURCES_HEADING = re.compile(r"^\W*(?:sources|references)\W*$", re.I | re.M)
+_URL_END = r"(?=$|[\s)\]>\"',.;])"
+
+
 def cited_sources(output: str, sources: list[Source]) -> list[str]:
-    """URLs of the given sources that the output both marks with [n] and lists by URL."""
+    """URLs of the given sources that the body marks inline with [n] and the Sources section lists by exact URL.
+
+    A bare "[n] URL" line in the Sources section is not a citation: the marker has to appear in the body.
+    """
     text = output or ""
+    headings = list(_SOURCES_HEADING.finditer(text))
+    if not headings:
+        return []
+    body, listing = text[: headings[-1].start()], text[headings[-1].end():]
     cited: list[str] = []
     for i, source in enumerate(sources, start=1):
-        if re.search(rf"\[{i}\]", text) and source.url in text:
+        marked = re.search(rf"\[{i}\]", body)
+        listed = re.search(rf"(?:^|[\s(<\[]){re.escape(source.url)}{_URL_END}", listing, re.M)
+        if marked and listed:
             cited.append(source.url)
     return cited
