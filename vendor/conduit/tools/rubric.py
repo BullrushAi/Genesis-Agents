@@ -50,7 +50,9 @@ import warnings
 from typing import Any
 
 try:
+    from langdetect import DetectorFactory as _LangDetectorFactory
     from langdetect import detect as _langdetect_detect
+    _LangDetectorFactory.seed = 0  # langdetect is random by default; a verdict must not change between runs
     _LANGDETECT_AVAILABLE = True
 except ImportError:
     _LANGDETECT_AVAILABLE = False
@@ -213,6 +215,70 @@ def _eval_custom_check(expr: str, content: str) -> dict:
 # Public API
 # ---------------------------------------------------------------------------
 
+
+# ---------------------------------------------------------------------------
+# Deliverable text
+# ---------------------------------------------------------------------------
+# A marketplace delivery is usually a JSON envelope ({"service", "agent", "negotiation_id", "output": ...})
+# whose output may itself be a JSON document. Size, language and must_contain predicates describe the work
+# the buyer asked for, so they are scored on the readable text inside the envelope, not on its keys, ids,
+# hashes and punctuation. must_not_contain, json and custom checks still see the full delivered content,
+# so nothing can be hidden in metadata. The SwarmSync API applies the same rule (release-gate.ts
+# deliverableText); keep the two in step.
+
+_METADATA_KEYS = frozenset({
+    "service", "agent", "job", "status", "version", "slug", "model", "provider", "kind", "type",
+})
+_METADATA_SUFFIX = re.compile(r"(?:^|_)(?:id|ids|sha256|hash|url|uri|at|b64|signature|fingerprint|timestamp)$")
+_MAX_DEPTH = 6
+
+
+def _is_metadata_key(key: str) -> bool:
+    snake = re.sub(r"(?<=[a-z0-9])([A-Z])", r"_\1", key).lower()
+    return snake in _METADATA_KEYS or bool(_METADATA_SUFFIX.search(snake))
+
+
+def _collect_text(value: Any, pieces: list[str], depth: int) -> None:
+    if depth > _MAX_DEPTH:
+        return
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return
+        if text[0] in "{[":
+            try:
+                parsed = json.loads(text)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, (dict, list)):
+                _collect_text(parsed, pieces, depth + 1)
+                return
+        pieces.append(text)
+    elif isinstance(value, list):
+        for item in value:
+            _collect_text(item, pieces, depth + 1)
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            if not _is_metadata_key(str(key)):
+                _collect_text(item, pieces, depth + 1)
+
+
+def deliverable_text(content: str) -> str:
+    """The readable text of a delivery: plain content as-is; for JSON, its string values minus metadata."""
+    stripped = content.strip()
+    if not stripped or stripped[0] not in "{[":
+        return content
+    try:
+        parsed = json.loads(stripped)
+    except ValueError:
+        return content
+    if not isinstance(parsed, (dict, list)):
+        return content
+    pieces: list[str] = []
+    _collect_text(parsed, pieces, 0)
+    return "\n".join(pieces)
+
+
 def evaluate_rubric(content: str, rubric: dict) -> dict:
     """Evaluate *content* against *rubric* and return a results dict.
 
@@ -228,12 +294,13 @@ def evaluate_rubric(content: str, rubric: dict) -> dict:
     dict with keys:
         rubric_pass       bool   True only when every predicate passes
         predicate_results list   one entry per evaluated predicate
-        content_length    int    len(content)
-        word_count        int    len(content.split())
+        content_length    int    len(deliverable_text(content))
+        word_count        int    len(deliverable_text(content).split())
     """
     predicates: list[dict] = []
-    word_count = len(content.split())
-    content_length = len(content)
+    text = deliverable_text(content)
+    word_count = len(text.split())
+    content_length = len(text)
 
     # --- min_word_count ---
     if "min_word_count" in rubric:
@@ -259,7 +326,7 @@ def evaluate_rubric(content: str, rubric: dict) -> dict:
     # NOTE: executor.shutdown(wait=False) instead of `with ... as executor:` —
     # see _eval_custom_check for why the `with` form defeats the timeout.
     if "must_contain" in rubric:
-        content_lower = content.lower()
+        content_lower = text.lower()
         for phrase in rubric["must_contain"]:
             pattern = re.compile(re.escape(phrase.lower()))
             executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -341,7 +408,7 @@ def evaluate_rubric(content: str, rubric: dict) -> dict:
             })
         else:
             try:
-                detected = _langdetect_detect(content)
+                detected = _langdetect_detect(text)
                 passed = detected == expected_lang
                 predicates.append({
                     "predicate": "language",
@@ -373,7 +440,7 @@ def evaluate_rubric(content: str, rubric: dict) -> dict:
                 passed = False
                 reason = f"invalid JSON ({exc}): FAIL"
         elif hint == "html":
-            cl = content.lower()
+            cl = text.lower()
             passed = "<html" in cl or "<!doctype" in cl
             reason = (
                 "found <html or <!doctype: PASS"
@@ -382,7 +449,7 @@ def evaluate_rubric(content: str, rubric: dict) -> dict:
             )
         elif hint == "markdown":
             pattern = r"(^#{1,6} |\*\*|__|```|\[.+\]\(.+\))"
-            passed = bool(re.search(pattern, content, re.MULTILINE))
+            passed = bool(re.search(pattern, text, re.MULTILINE))
             reason = (
                 "markdown pattern found: PASS"
                 if passed
