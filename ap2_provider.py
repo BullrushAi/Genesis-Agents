@@ -50,6 +50,7 @@ import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+import research_evidence
 import swarmsync_environments as swarmsync_envs
 
 logger = logging.getLogger("ap2_provider")
@@ -482,8 +483,10 @@ class Ap2Provider:
         client_factory: Optional[Callable[[str, str, str], SwarmSyncAgentClient]] = None,
         managed: Optional[list[tuple[str, str, str, frozenset[str]]]] = None,
         credential_fetcher: Optional[Callable[[str, str, str], Awaitable[tuple[int, Any]]]] = None,
+        source_gatherer: Optional[Callable[[str], Awaitable[list[research_evidence.Source]]]] = None,
     ) -> None:
         self.credentials = list(credentials)
+        self._gather = source_gatherer or research_evidence.gather_sources
         self.managed = managed or []
         self._http: Optional[httpx.AsyncClient] = httpx.AsyncClient(timeout=20.0, follow_redirects=False)
         self._fetch_credential = credential_fetcher or (
@@ -542,12 +545,39 @@ class Ap2Provider:
             return
         self._in_flight.add(key)
         try:
-            output = await self._execute(cred.slug, job_input(negotiation))
+            job = job_input(negotiation)
+            sources: Optional[list[research_evidence.Source]] = None
+            if research_evidence.needs_evidence(cred.slug, job):
+                # A research deliverable is written from retrieved sources and must cite them; without
+                # sources there is nothing honest to deliver, so delivery is withheld (the buyer can refund
+                # an undelivered escrow) instead of shipping unverified findings.
+                query = research_evidence.search_query(str(negotiation.get("requestedService") or ""), job)
+                sources = await self._gather(query)
+                if len(sources) < research_evidence.MIN_SOURCES:
+                    self._record(nid, role=SELLER, env=cred.env, agent=cred.slug, evidence_blocked="no usable sources found")
+                    self._done.add(key)
+                    logger.error("evidence guard withheld delivery for %s: %d usable sources", nid, len(sources))
+                    return
+                job = research_evidence.evidence_prompt(job, sources)
+            output = await self._execute(cred.slug, job)
+            cited_regenerated = False
+            if sources is not None and len(research_evidence.cited_sources(output, sources)) < research_evidence.MIN_SOURCES:
+                output = await self._execute(
+                    cred.slug, job + research_evidence.CITATION_CORRECTION.format(minimum=research_evidence.MIN_SOURCES)
+                )
+                cited_regenerated = True
+                if len(research_evidence.cited_sources(output, sources)) < research_evidence.MIN_SOURCES:
+                    self._record(nid, role=SELLER, env=cred.env, agent=cred.slug, evidence_blocked="output did not cite its sources")
+                    self._done.add(key)
+                    logger.error("evidence guard withheld uncited delivery for %s", nid)
+                    return
             body = build_delivery(cred, negotiation, output, self.key, self.runtime_sha256)
             status, data = await client.deliver(body)
             self._record(
                 nid, role=SELLER, env=cred.env, agent=cred.slug, deliver_status=status,
                 result_sha256=body["evidence"]["result_sha256"],
+                cited_sources=len(research_evidence.cited_sources(output, sources)) if sources is not None else None,
+                citation_regenerated=cited_regenerated,
             )
             if status < 300 or (400 <= status < 500 and status != 429):
                 self._done.add(key)

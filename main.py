@@ -4197,6 +4197,21 @@ async def evaluate_negotiation(slug: str, request: NegotiateRequest) -> dict:
     requirements_str = str(request.requirements) if request.requirements else "None"
     notes_str = request.notes or "None"
 
+    # A research job is written from retrieved sources (research_evidence). If a search finds nothing to
+    # cite, decline now, before the buyer's money is held, instead of delivering unverified findings.
+    import research_evidence
+
+    evidence_text = " ".join([request.requested_service or "", requirements_str, notes_str])
+    if research_evidence.needs_evidence(slug, evidence_text):
+        # The same check delivery applies (readable fetched pages, not bare search hits), so an accepted
+        # offer is one the agent can deliver; otherwise the buyer's escrow would sit until a manual refund.
+        found = await research_evidence.gather_sources(
+            research_evidence.search_query(request.requested_service or "", evidence_text)
+        )
+        if len(found) < research_evidence.MIN_SOURCES:
+            logger.info("evidence probe for %s found %d usable sources; declining", slug, len(found))
+            return {"status": "REJECTED", "price": request.budget, "notes": research_evidence.DECLINE_NOTE}
+
     negotiation_prompt = (
         "You have received an inbound service request via the AP2 protocol.\n\n"
         f"Requester: {request.requester_agent_name}\n"
