@@ -282,3 +282,9 @@ class TestNegotiationDecline:
         monkeypatch.setattr(main, "_router_result_payload", lambda raw: (raw, {}), raising=False)
         decision = run(main.evaluate_negotiation(RESEARCH_SLUG, self._request("short research summary")))
         assert decision["status"] == "ACCEPTED"
+
+
+def test_a_url_followed_by_more_path_is_not_the_shorter_source():
+    srcs = [rev.Source(url="https://example.org/a", title="A", text=PAGE)]
+    assert rev.cited_sources("Claim [1].\n\nSources\n[1] https://example.org/a.html", srcs) == []
+    assert rev.cited_sources("Claim [1].\n\nSources\n[1] https://example.org/a.", srcs) == ["https://example.org/a"]

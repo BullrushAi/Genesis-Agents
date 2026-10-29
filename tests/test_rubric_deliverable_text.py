@@ -84,3 +84,24 @@ def test_language_scores_the_deliverable_text():
         pytest.skip("langdetect not installed here")
     result = rubric.evaluate_rubric(_genesis_delivery(), {"language": "en"})
     assert result["rubric_pass"], result["predicate_results"]
+
+
+def test_json_with_no_strings_is_not_scored_as_empty():
+    assert rubric.deliverable_text('{"count": 42}') == "42"
+    assert rubric.deliverable_text("[1, 2, 3]") == "1\n2\n3"
+    only_metadata = json.dumps({"status": "ok", "negotiation_id": "n-1"})
+    assert rubric.deliverable_text(only_metadata) == only_metadata
+    assert rubric.evaluate_rubric('{"count": 42}', {"must_contain": ["42"], "min_word_count": 1})["rubric_pass"]
+
+
+def test_bulk_text_under_a_metadata_key_still_counts_against_a_maximum():
+    padded = json.dumps({"answer": "Short answer.", "status": "padding " * 200})
+    assert "padding" in rubric.deliverable_text(padded)
+    assert not rubric.evaluate_rubric(padded, {"max_word_count": 50})["rubric_pass"]
+
+
+def test_text_nested_past_the_depth_limit_still_counts():
+    deep: object = {"answer": "deep words here"}
+    for _ in range(10):
+        deep = {"wrap": deep}
+    assert "deep words here" in rubric.deliverable_text(json.dumps(deep))

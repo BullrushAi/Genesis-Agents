@@ -222,14 +222,17 @@ def _eval_custom_check(expr: str, content: str) -> dict:
 # A marketplace delivery is usually a JSON envelope ({"service", "agent", "negotiation_id", "output": ...})
 # whose output may itself be a JSON document. Size, language and must_contain predicates describe the work
 # the buyer asked for, so they are scored on the readable text inside the envelope, not on its keys, ids,
-# hashes and punctuation. must_not_contain, json and custom checks still see the full delivered content,
-# so nothing can be hidden in metadata. The SwarmSync API applies the same rule (release-gate.ts
-# deliverableText); keep the two in step.
+# hashes and punctuation. Only short values under metadata-named keys are dropped (ids, hashes, timestamps,
+# labels); a long string under such a key still counts, so nobody can hide bulk text there to slip under a
+# maximum. Text nested past the depth limit counts too, and a JSON delivery with no text at all is scored as
+# delivered. must_not_contain, json and custom checks still see the full delivered content. The SwarmSync API
+# applies the same rule (release-gate.ts deliverableText); keep the two in step.
 
 _METADATA_KEYS = frozenset({
     "service", "agent", "job", "status", "version", "slug", "model", "provider", "kind", "type",
 })
 _METADATA_SUFFIX = re.compile(r"(?:^|_)(?:id|ids|sha256|hash|url|uri|at|b64|signature|fingerprint|timestamp)$")
+_METADATA_MAX_CHARS = 128
 _MAX_DEPTH = 6
 
 
@@ -238,8 +241,32 @@ def _is_metadata_key(key: str) -> bool:
     return snake in _METADATA_KEYS or bool(_METADATA_SUFFIX.search(snake))
 
 
+def _is_short_metadata_value(value: Any) -> bool:
+    if isinstance(value, str):
+        return len(value.strip()) <= _METADATA_MAX_CHARS
+    return value is None or isinstance(value, (bool, int, float))
+
+
+def _scalar_text(value: Any) -> str:
+    """A JSON scalar as JavaScript's String() writes it, so the API and the gateway count the same text."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def _collect_text(value: Any, pieces: list[str], depth: int) -> None:
     if depth > _MAX_DEPTH:
+        # Past the depth limit nothing is filtered: every scalar counts.
+        if isinstance(value, dict):
+            for item in value.values():
+                _collect_text(item, pieces, depth + 1)
+        elif isinstance(value, list):
+            for item in value:
+                _collect_text(item, pieces, depth + 1)
+        elif value is not None and _scalar_text(value).strip():
+            pieces.append(_scalar_text(value).strip())
         return
     if isinstance(value, str):
         text = value.strip()
@@ -254,17 +281,20 @@ def _collect_text(value: Any, pieces: list[str], depth: int) -> None:
                 _collect_text(parsed, pieces, depth + 1)
                 return
         pieces.append(text)
+    elif isinstance(value, (bool, int, float)):
+        pieces.append(_scalar_text(value))
     elif isinstance(value, list):
         for item in value:
             _collect_text(item, pieces, depth + 1)
     elif isinstance(value, dict):
         for key, item in value.items():
-            if not _is_metadata_key(str(key)):
-                _collect_text(item, pieces, depth + 1)
+            if _is_metadata_key(str(key)) and _is_short_metadata_value(item):
+                continue
+            _collect_text(item, pieces, depth + 1)
 
 
 def deliverable_text(content: str) -> str:
-    """The readable text of a delivery: plain content as-is; for JSON, its string values minus metadata."""
+    """The readable text of a delivery: plain content as-is; for JSON, its values minus short metadata."""
     stripped = content.strip()
     if not stripped or stripped[0] not in "{[":
         return content
@@ -276,7 +306,7 @@ def deliverable_text(content: str) -> str:
         return content
     pieces: list[str] = []
     _collect_text(parsed, pieces, 0)
-    return "\n".join(pieces)
+    return "\n".join(pieces) if pieces else content
 
 
 def evaluate_rubric(content: str, rubric: dict) -> dict:

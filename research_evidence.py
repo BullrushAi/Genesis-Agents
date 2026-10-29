@@ -143,7 +143,9 @@ CITATION_CORRECTION = (
 
 
 _SOURCES_HEADING = re.compile(r"^\W*(?:sources|references)\W*$", re.I | re.M)
-_URL_END = r"(?=$|[\s)\]>\"',.;])"
+# A URL ends at whitespace, a closing bracket or quote, or trailing punctuation followed by whitespace;
+# "https://example.org/a" must not match inside "https://example.org/a.html".
+_URL_END = r"(?=$|[\s)\]>\"']|[.,;](?:\s|$))"
 
 
 def cited_sources(output: str, sources: list[Source]) -> list[str]:
