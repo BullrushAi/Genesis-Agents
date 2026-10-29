@@ -84,6 +84,7 @@ from runtime.router_canonical import (
     config_rejected,
     router_fallback_allowed,
 )
+from runtime.per_agent_model import per_agent_override
 from runtime.anthropic_wire import (
     exact_forced_tool_envelope_reason,
 )
@@ -261,7 +262,7 @@ async def _execute_bounded_job(slug: str, prompt: str) -> str:
     import library_agents
 
     if library_agents.is_library_slug(slug):
-        raw = await call_llm_router(library_agents.system_prompt(slug), prompt)
+        raw = await call_llm_router(library_agents.system_prompt(slug), prompt, slug=slug)
         text, _ = _router_result_payload(raw)
         return text
 
@@ -271,7 +272,7 @@ async def _execute_bounded_job(slug: str, prompt: str) -> str:
     bundle = load_bundle(canonical_slug)
     if bundle is None:
         raise RuntimeError(f"no reviewed bundle for {canonical_slug}")
-    raw = await call_llm_router(str(bundle["system_prompt"]), prompt)
+    raw = await call_llm_router(str(bundle["system_prompt"]), prompt, slug=canonical_slug)
     text, _ = _router_result_payload(raw)
     return text
 
@@ -1667,11 +1668,22 @@ def _raise_for_runtime_failure(result: dict[str, Any], slug: str) -> None:
         detail=detail,
     )
 
-async def call_llm_router(system_prompt: str, user_prompt: str) -> dict[str, Any]:
-    """Route a persona request through the configured model provider."""
-    return await _call_llm_router_inner(system_prompt, user_prompt)
+async def call_llm_router(
+    system_prompt: str, user_prompt: str, slug: str | None = None
+) -> dict[str, Any]:
+    """Route a persona request through the configured model provider.
 
-async def _call_llm_router_inner(system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    slug is optional and preserves old behaviour when omitted: the global
+    GENESIS_LLM_MODEL stays primary. When a per-agent override env var is set
+    for that slug, it replaces only the first (primary) model; the fallback
+    models are unchanged. This does not touch the canonical V5 path, which
+    stays Haiku-pinned.
+    """
+    return await _call_llm_router_inner(system_prompt, user_prompt, slug=slug)
+
+async def _call_llm_router_inner(
+    system_prompt: str, user_prompt: str, slug: str | None = None
+) -> dict[str, Any]:
     """Call SwarmSync /v1/chat/completions; return text + swarmsync routing metadata."""
     api_key = _llm_api_key()
     if not api_key:
@@ -1697,6 +1709,12 @@ async def _call_llm_router_inner(system_prompt: str, user_prompt: str) -> dict[s
     backoffs = [2.0, 6.0, 12.0]
     last_exc: HTTPException | None = None
     models = list(dict.fromkeys(m for m in ROUTER_FALLBACK_MODELS if m))
+    # Per-agent override (router path only): replace only the primary model
+    # for this slug, keep the fallbacks unchanged. Other slugs, and callers
+    # that pass no slug, keep the global model exactly as before.
+    _override = per_agent_override(slug)
+    if _override:
+        models = [_override] + [m for m in models[1:] if m != _override]
 
     attempt_count = 0
     router_down = False
@@ -2806,7 +2824,7 @@ async def run_agent(slug: str, body: RunRequest, principal=Depends(verify_agent_
                     "errorMessage": "prompt_required",
                 },
             )
-        raw = await call_llm_router(library_agents.system_prompt(slug), user_prompt)
+        raw = await call_llm_router(library_agents.system_prompt(slug), user_prompt, slug=slug)
         text, _ = _router_result_payload(raw)
         return RunResponse(
             response=text,

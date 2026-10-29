@@ -77,6 +77,7 @@ except Exception:
 # back to allowing everything, and a prohibition that can be disabled by an
 # ImportError is not a prohibition. runtime.tool_policy is pure standard
 # library, so this import cannot fail anywhere agent_runtime itself imports.
+from runtime.per_agent_model import resolve_agent_model
 from runtime.tool_policy import (  # noqa: E402
     RISK_DEPLOYMENT,
     RISK_READ_ONLY,
@@ -872,7 +873,9 @@ class AgentRuntime:
 
             # Call LLM
             try:
-                response = await self._call_llm(model, messages, provider_tools, token_budget)
+                response = await self._call_llm(
+                    model, messages, provider_tools, token_budget, slug=slug
+                )
                 llm_calls += 1
                 if isinstance(response.get("swarmsync"), dict):
                     last_swarmsync = response["swarmsync"]
@@ -1732,9 +1735,10 @@ class AgentRuntime:
         messages: list,
         tools: list,
         max_tokens: int,
+        slug: Optional[str] = None,
     ) -> dict[str, Any]:
         """Dispatch a model request through the configured provider."""
-        return await self._call_llm_inner(model, messages, tools, max_tokens)
+        return await self._call_llm_inner(model, messages, tools, max_tokens, slug=slug)
 
     async def _call_llm_inner(
         self,
@@ -1742,6 +1746,7 @@ class AgentRuntime:
         messages: list,
         tools: list,
         max_tokens: int,
+        slug: Optional[str] = None,
     ) -> dict[str, Any]:
         """Call the configured LLM endpoint.
 
@@ -1764,14 +1769,15 @@ class AgentRuntime:
                 "https://api.swarmsync.ai/v1/chat/completions"
             )
 
+        # Router branch only: the Anthropic branch above is untouched, and the
+        # canonical V5 path is untouched. Per-agent override beats the global
+        # GENESIS_LLM_MODEL, which beats the bundle model_hint, which beats the
+        # default — see runtime/per_agent_model.py. All other agents fall back
+        # to the global env exactly as before (slug=None preserves old behaviour).
         env_model = (os.getenv("GENESIS_LLM_MODEL") or "").strip()
-        # When the env var is "auto" or absent, respect the bundle's model_hint so
-        # agents that need function-calling (e.g. genesis-meta) get a capable model.
-        # A non-"auto" env value (e.g. "anthropic/claude-haiku-4-5") overrides all bundles.
-        if env_model and env_model != "auto":
-            primary = env_model
-        else:
-            primary = model if (model and model != "auto") else DEFAULT_SWARMSYNC_MODEL
+        primary, resolved_from = resolve_agent_model(
+            slug, model, env_model, DEFAULT_SWARMSYNC_MODEL
+        )
         model_candidates = [primary, "minimax/minimax-m2.5"]
         deduped: list[str] = []
         for m in model_candidates:
@@ -1805,6 +1811,9 @@ class AgentRuntime:
                                 "attempt_count": attempt_count,
                                 "fallback_used": candidate_index > 0,
                                 "candidate_count": len(deduped),
+                                "primary_model": primary,
+                                "model_resolved_from": resolved_from,
+                                "model_used": routed_model,
                             }
                         return result
                     text = await resp.text()
