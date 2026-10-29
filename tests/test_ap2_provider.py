@@ -488,3 +488,29 @@ class TestIdleBackoff:
         run(p.tick())
         run(p.tick())
         assert len(market.delivered) == 1
+
+    def test_a_wake_during_an_in_flight_poll_is_not_lost(self, monkeypatch):
+        monkeypatch.setenv("GENESIS_AP2_PROVIDER_IDLE_POLL_SECONDS", "300")
+        market = self.CountingMarket()
+        original = market.client
+        woken = []
+
+        def client(url, agent_id, api_key):
+            inner = original(url, agent_id, api_key)
+            polled = inner.my_negotiations
+
+            async def poll_then_offer_arrives():
+                result = await polled()
+                if not woken:  # the offer lands while this poll's (empty) snapshot is in flight
+                    woken.append(True)
+                    p.wake(SELLER_SLUG)
+                return result
+
+            inner.my_negotiations = poll_then_offer_arrives
+            return inner
+
+        market.client = client
+        p = provider(market)
+        run(p.tick())
+        run(p.tick())
+        assert market.polls == 2

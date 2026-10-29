@@ -509,6 +509,8 @@ class Ap2Provider:
         self.tick_errors = 0
         # (env, slug) -> earliest time.time() of the next inbox poll; absent means poll on the next tick.
         self._next_poll_at: dict[tuple[str, str], float] = {}
+        # slug -> how many times it was woken; a poll that overlapped a wake must not schedule the idle wait.
+        self._wakes: dict[str, int] = {}
 
     # -- plumbing ---------------------------------------------------------------------------------
 
@@ -626,6 +628,7 @@ class Ap2Provider:
 
     def wake(self, slug: str) -> None:
         """Poll this agent on the next tick: it was just offered work, or just opened a purchase."""
+        self._wakes[slug] = self._wakes.get(slug, 0) + 1
         for key in [k for k in self._next_poll_at if k[1] == slug]:
             del self._next_poll_at[key]
 
@@ -636,11 +639,13 @@ class Ap2Provider:
             if time.time() < self._next_poll_at.get(key, 0.0):
                 continue
             client = self._client(cred)
+            wakes_before = self._wakes.get(cred.slug, 0)
             status, data = await client.my_negotiations()
             if status != 200 or not isinstance(data, list):
                 logger.warning("poll %s/%s -> %s", cred.env, cred.slug, status)
                 continue
-            if has_live_deal(data):
+            if has_live_deal(data) or self._wakes.get(cred.slug, 0) != wakes_before:
+                # A wake during the poll means this snapshot may predate the new offer or purchase.
                 self._next_poll_at.pop(key, None)
             else:
                 self._next_poll_at[key] = time.time() + idle_poll_seconds()
