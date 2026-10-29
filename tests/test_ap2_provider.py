@@ -418,3 +418,99 @@ class TestWallet:
         assert out == {"http_status": 200, "agent_id": BUYER_ID, "wallet_id": "w-1", "currency": "USD", "balance": "4.95", "reserved": "0"}
         with pytest.raises(LookupError):
             run(p.wallet(SELLER_SLUG))  # seller-only credential has no buyer wallet view
+
+
+class TestIdleBackoff:
+    """Oct 29: polling every hosted agent's inbox every tick drove the marketplace database over its egress quota.
+    An agent with nothing live is polled again only after the idle interval; a live deal keeps it on every tick."""
+
+    class CountingMarket(FakeMarketplace):
+        def __init__(self) -> None:
+            super().__init__()
+            self.polls = 0
+
+        def client(self, url, agent_id, api_key):
+            inner = super().client(url, agent_id, api_key)
+            market = self
+            original = inner.my_negotiations
+
+            async def counted():
+                market.polls += 1
+                return await original()
+
+            inner.my_negotiations = counted
+            return inner
+
+    def test_an_idle_agent_is_not_polled_again_until_the_idle_interval_passes(self, monkeypatch):
+        monkeypatch.setenv("GENESIS_AP2_PROVIDER_IDLE_POLL_SECONDS", "300")
+        market = self.CountingMarket()
+        p = provider(market)
+        run(p.tick())
+        run(p.tick())
+        run(p.tick())
+        assert market.polls == 1
+        p._next_poll_at = {k: 0.0 for k in p._next_poll_at}  # the interval has passed
+        run(p.tick())
+        assert market.polls == 2
+
+    @pytest.mark.parametrize("live", [
+        {"status": "PENDING", "escrowId": None},
+        {"status": "COUNTERED", "escrowId": None},
+        {"status": "ACCEPTED", "escrowId": None},
+    ])
+    def test_a_live_deal_keeps_the_agent_on_every_tick(self, monkeypatch, live):
+        monkeypatch.setenv("GENESIS_AP2_PROVIDER_IDLE_POLL_SECONDS", "300")
+        market = self.CountingMarket()
+        market.negotiations = [neg(**live)]
+        p = provider(market)
+        run(p.tick())
+        run(p.tick())
+        assert market.polls == 2
+
+    def test_finished_deals_do_not_keep_an_agent_hot(self):
+        assert not ap.has_live_deal([neg(workResult={"output": "x"}), neg(verificationStatus="VERIFIED"),
+                                     neg(status="DECLINED"), neg(status="EXPIRED"), "junk"])
+
+    def test_an_offer_or_a_purchase_wakes_an_idle_agent(self, monkeypatch):
+        monkeypatch.setenv("GENESIS_AP2_PROVIDER_IDLE_POLL_SECONDS", "300")
+        market = self.CountingMarket()
+        p = provider(market)
+        run(p.tick())
+        p.wake(SELLER_SLUG)
+        run(p.tick())
+        assert market.polls == 2
+
+    def test_an_accepted_job_is_still_delivered_once(self, monkeypatch):
+        monkeypatch.setenv("GENESIS_AP2_PROVIDER_IDLE_POLL_SECONDS", "300")
+        market = self.CountingMarket()
+        market.negotiations = [neg()]
+        p = provider(market)
+        run(p.tick())
+        run(p.tick())
+        assert len(market.delivered) == 1
+
+    def test_a_wake_during_an_in_flight_poll_is_not_lost(self, monkeypatch):
+        monkeypatch.setenv("GENESIS_AP2_PROVIDER_IDLE_POLL_SECONDS", "300")
+        market = self.CountingMarket()
+        original = market.client
+        woken = []
+
+        def client(url, agent_id, api_key):
+            inner = original(url, agent_id, api_key)
+            polled = inner.my_negotiations
+
+            async def poll_then_offer_arrives():
+                result = await polled()
+                if not woken:  # the offer lands while this poll's (empty) snapshot is in flight
+                    woken.append(True)
+                    p.wake(SELLER_SLUG)
+                return result
+
+            inner.my_negotiations = poll_then_offer_arrives
+            return inner
+
+        market.client = client
+        p = provider(market)
+        run(p.tick())
+        run(p.tick())
+        assert market.polls == 2

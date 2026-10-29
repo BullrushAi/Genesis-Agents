@@ -120,6 +120,35 @@ async def fetch_gateway_credential(
         return resp.status_code, resp.text[:200]
 
 
+def idle_poll_seconds() -> float:
+    """How long an agent with no live negotiation waits between inbox polls (default 15 minutes).
+
+    Every poll is a database read on SwarmSync's side, and most hosted agents have nothing open, so polling them
+    all every tick drove the marketplace database over its egress quota (Oct 29). An agent with a live deal, or
+    one that was just offered work or just bought, is polled every tick as before."""
+    try:
+        return max(0.0, float(os.getenv("GENESIS_AP2_PROVIDER_IDLE_POLL_SECONDS", "900")))
+    except ValueError:
+        return 900.0
+
+
+LIVE_STATUSES = {"PENDING", "COUNTERED"}
+
+
+def has_live_deal(negotiations: list[Any]) -> bool:
+    """Whether a later poll could lead this runtime to act: an open offer or counter, or an accepted deal that is
+    neither delivered nor verified yet."""
+    for n in negotiations:
+        if not isinstance(n, dict):
+            continue
+        status = n.get("status")
+        if status in LIVE_STATUSES:
+            return True
+        if status == "ACCEPTED" and not n.get("workResult") and n.get("verificationStatus") is None:
+            return True
+    return False
+
+
 def buyer_cap_cents() -> int:
     try:
         return max(0, int(os.getenv("GENESIS_AP2_BUYER_MAX_CENTS", str(DEFAULT_BUYER_CAP_CENTS))))
@@ -478,6 +507,10 @@ class Ap2Provider:
         self.ledger: dict[str, dict[str, Any]] = {}
         self.last_tick_at: Optional[float] = None
         self.tick_errors = 0
+        # (env, slug) -> earliest time.time() of the next inbox poll; absent means poll on the next tick.
+        self._next_poll_at: dict[tuple[str, str], float] = {}
+        # slug -> how many times it was woken; a poll that overlapped a wake must not schedule the idle wait.
+        self._wakes: dict[str, int] = {}
 
     # -- plumbing ---------------------------------------------------------------------------------
 
@@ -593,14 +626,29 @@ class Ap2Provider:
             self._managed_next_retry.pop(key, None)
             logger.info("managed credential for %s/%s issued", env_name, slug)
 
+    def wake(self, slug: str) -> None:
+        """Poll this agent on the next tick: it was just offered work, or just opened a purchase."""
+        self._wakes[slug] = self._wakes.get(slug, 0) + 1
+        for key in [k for k in self._next_poll_at if k[1] == slug]:
+            del self._next_poll_at[key]
+
     async def tick(self) -> None:
         await self.refresh_managed()
         for cred in self.credentials:
+            key = (cred.env, cred.slug)
+            if time.time() < self._next_poll_at.get(key, 0.0):
+                continue
             client = self._client(cred)
+            wakes_before = self._wakes.get(cred.slug, 0)
             status, data = await client.my_negotiations()
             if status != 200 or not isinstance(data, list):
                 logger.warning("poll %s/%s -> %s", cred.env, cred.slug, status)
                 continue
+            if has_live_deal(data) or self._wakes.get(cred.slug, 0) != wakes_before:
+                # A wake during the poll means this snapshot may predate the new offer or purchase.
+                self._next_poll_at.pop(key, None)
+            else:
+                self._next_poll_at[key] = time.time() + idle_poll_seconds()
             for negotiation in data:
                 if not isinstance(negotiation, dict) or "id" not in negotiation:
                     continue
@@ -686,6 +734,7 @@ class Ap2Provider:
         if status < 300 and isinstance(body, dict) and body.get("id"):
             self._record(body["id"], role=BUYER, env=cred.env, agent=cred.slug, status=body.get("status"),
                          seller=seller.get("slug"), budget=cents / 100)
+            self.wake(cred.slug)
         return result
 
     async def wallet(self, slug: str, environment: Optional[str] = None) -> dict[str, Any]:

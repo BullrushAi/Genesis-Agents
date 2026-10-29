@@ -4072,6 +4072,9 @@ async def negotiate_agent(
     Marketplace slugs are allowed here. /run still requires a canonical agent. An accepted marketplace
     negotiation is performed and delivered back to the same environment that authenticated this call.
     """
+    if _AP2_PROVIDER is not None:
+        # An offer arrived: watch this agent's inbox closely until the deal is done.
+        _AP2_PROVIDER.wake(slug)
     caller_env = swarmsync_envs.resolve_by_gateway_secret(x_agent_gateway_secret)
     try:
         env = swarmsync_envs.assert_callback_allowed(request.callback_url, caller_env)
