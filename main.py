@@ -251,6 +251,8 @@ async def _genesis_auto_worker_loop() -> None:
 
 _AP2_PROVIDER: Optional[ap2_provider.Ap2Provider] = None
 _AP2_PROVIDER_TASK: Optional[Any] = None
+_NEEDS_BOARD: Optional[Any] = None
+_NEEDS_BOARD_TASK: Optional[Any] = None
 
 
 async def _execute_bounded_job(slug: str, prompt: str) -> str:
@@ -265,6 +267,19 @@ async def _execute_bounded_job(slug: str, prompt: str) -> str:
         raw = await call_llm_router(library_agents.system_prompt(slug), prompt, slug=slug)
         text, _ = _router_result_payload(raw)
         return text
+
+    import marketplace_agent
+
+    if marketplace_agent.load_spec(slug) is not None:
+        # A marketplace buyer gets a finished deliverable from the agent's marketplace spec, checked against its
+        # quality bar and revised once; the internal bundle (Cato/genesis-v5 contract) is for /run only.
+        canonical_slug = _require_canonical_agent(slug)
+
+        async def _market_llm(system: str, user: str) -> str:
+            text, _ = _router_result_payload(await call_llm_router(system, user, slug=canonical_slug))
+            return text
+
+        return await marketplace_agent.run_job(canonical_slug, prompt, _market_llm)
 
     from bundle_loader import load_bundle
 
@@ -312,7 +327,22 @@ def _start_ap2_provider() -> None:
     _AP2_PROVIDER_TASK = asyncio.create_task(_AP2_PROVIDER.run_forever(interval))
     _background_tasks.add(_AP2_PROVIDER_TASK)
     _AP2_PROVIDER_TASK.add_done_callback(_background_tasks.discard)
+    _start_needs_board()
     logger.info("ap2 provider enabled and started for %d credential(s), %d managed agent(s)", len(credentials), len(managed))
+
+
+def _start_needs_board() -> None:
+    """Watch needs-board work orders for the provider's agents; bid only when directed (see needs_board.py)."""
+    global _NEEDS_BOARD, _NEEDS_BOARD_TASK
+    if _AP2_PROVIDER is None or os.getenv("GENESIS_NEEDS_BOARD_ENABLED", "true").strip().lower() in {"0", "false", "no"}:
+        return
+    import needs_board
+
+    _NEEDS_BOARD = needs_board.NeedsBoard(_AP2_PROVIDER, _execute_bounded_job)
+    interval = float(os.getenv("GENESIS_NEEDS_BOARD_POLL_SECONDS", "60"))
+    _NEEDS_BOARD_TASK = asyncio.create_task(_NEEDS_BOARD.run_forever(interval))
+    _background_tasks.add(_NEEDS_BOARD_TASK)
+    _NEEDS_BOARD_TASK.add_done_callback(_background_tasks.discard)
 
 
 @asynccontextmanager
@@ -4134,7 +4164,7 @@ async def ap2_provider_status() -> dict:
     """Provider state for operators and verifiers: credentials (no keys), runtime identity, ledger."""
     if _AP2_PROVIDER is None:
         return {"enabled": False}
-    return _AP2_PROVIDER.status()
+    return {**_AP2_PROVIDER.status(), "needs_board": _NEEDS_BOARD.status() if _NEEDS_BOARD is not None else None}
 
 
 @app.post("/agents/{slug}/ap2/procure", dependencies=[Depends(verify_gateway_key)])
@@ -4187,6 +4217,29 @@ async def ap2_redeem_voucher(slug: str, body: VoucherRedeemRequest) -> dict:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+class FindBuyersRequest(BaseModel):
+    max_bids: int = 3
+    dry_run: bool = False
+    environment: Optional[str] = None
+
+
+@app.post("/agents/{slug}/ap2/find-buyers", dependencies=[Depends(verify_gateway_key)])
+async def ap2_find_buyers(slug: str, body: FindBuyersRequest) -> dict:
+    """Directed buyer search: this agent bids, with its own key, on open needs that fit its marketplace spec."""
+    _require_ap2_provider()
+    _require_canonical_agent(slug)
+    if _NEEDS_BOARD is None:
+        raise HTTPException(status_code=503, detail="needs_board_disabled")
+    try:
+        return await _NEEDS_BOARD.find_buyers(
+            slug, environment=body.environment, max_bids=body.max_bids, dry_run=body.dry_run
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 # ---------------------------------------------------------------------------
 # AP2 Negotiate helpers
 # ---------------------------------------------------------------------------
@@ -4200,8 +4253,13 @@ async def evaluate_negotiation(slug: str, request: NegotiateRequest) -> dict:
     persona = AGENT_PERSONAS.get(slug)
     import library_agents
 
+    import marketplace_agent
+
+    market_spec = marketplace_agent.load_spec(slug)
     library_persona = library_agents.persona(slug)
-    if library_persona is not None:
+    if market_spec is not None:
+        system_prompt = marketplace_agent.negotiation_system_prompt(market_spec)
+    elif library_persona is not None:
         _, system_prompt = library_persona
     elif persona:
         _, system_prompt = persona
@@ -4377,6 +4435,12 @@ async def _evaluate_and_respond(
     """Background task: evaluate negotiation via LLM and POST decision to callback URL."""
     try:
         decision = await evaluate_negotiation(slug, request)
+        import marketplace_agent
+
+        offer_text = " ".join(
+            [request.requested_service or "", json.dumps(request.requirements or {}, default=str), request.notes or ""]
+        )
+        decision = marketplace_agent.apply_offer_policy(slug, request.budget, offer_text, decision)
 
         status = decision.get("status", "ACCEPTED")
         if status == "COUNTERED":

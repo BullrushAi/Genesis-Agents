@@ -352,6 +352,9 @@ class TestSellerNegotiationReply:
     def test_an_accept_is_only_an_accept_at_the_buyers_offer(self, monkeypatch, decided_price, expected_status):
         import main
 
+        # The model's own decision path (marketplace offer policy off). With specs on, the policy prices the offer:
+        # see tests/test_marketplace_agent.py.
+        monkeypatch.setenv("GENESIS_MARKET_SPECS_ENABLED", "false")
         sent: list[dict] = []
 
         async def fake_eval(slug, request):
