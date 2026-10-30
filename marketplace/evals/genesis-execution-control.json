@@ -225,6 +225,29 @@
       }
     },
     {
+      "id": "ec-status-update",
+      "kind": "deliver",
+      "service": "status update for our tickets",
+      "requirements": {
+        "text": "Give me a status update for our tickets this sprint, and an update of the tasks in flight. Attached is the board export. Read only, change nothing."
+      },
+      "budget": 2.0,
+      "expect": {
+        "decision": "ACCEPTED",
+        "must_cover": [
+          "status",
+          "blocker",
+          "next action"
+        ],
+        "must_not_contain": [
+          "DEPLOYED"
+        ],
+        "min_words": 250,
+        "max_words": 1500,
+        "citations": false
+      }
+    },
+    {
       "id": "ec-decline-deploy",
       "kind": "decline",
       "service": "close the done tickets and merge the PRs",
