@@ -75,12 +75,12 @@
   ],
   "out_of_scope": [
     {
-      "pattern": "\\b(deploy|merge|close|move|transition|update)(?!\\s+(?:me|us|you)\\b)\\s+(?:(?:the|this|that|these|those|our|my|a|an|all|any)\\s+)?(?:[\\w-]+\\s+){0,2}?(tickets?|issues?|tasks?|pull requests?|prs?|boards?|jira|monday|github)\\b",
+      "pattern": "\\b(deploy|merge|close|move|transition|update)(?!\\s+(?:me|us|you|on|about|regarding)\\b)\\s+(?:(?:the|this|that|these|those|our|my|a|an|all|any)\\s+)?(?:[\\w-]+\\s+){0,2}?(tickets?|issues?|tasks?|pull requests?|prs?|boards?|jira|monday|github)\\b(?=\\s*(?:$|[.,;:!?)]|\\b(?:for|in|on|to|that|which|so|and|then|with|by|from|at|before|after)\\b|\\b(?:scripts?|code|files?|changes?)\\b))",
       "reason": "This agent recommends state transitions and plans; it does not execute writes to ticketing, boards or repos.",
       "refer_to": null
     },
     {
-      "pattern": "\\b(write|implement|build|code|fix)\\s+(?:(?:the|this|that|our|my|a|an)\\s+)?(?:[\\w-]+\\s+){0,2}?(features?|functions?|bugs?|endpoints?|services?|migrations?|modules?)\\b(?!\\s+(?:plans?|strateg(?:y|ies)|roadmaps?|timelines?|status|reviews?|audits?|risks?|reports?|checklists?|schedules?|recovery)\\b)",
+      "pattern": "\\b(write|implement|build|code|fix)\\s+(?:(?:the|this|that|our|my|a|an)\\s+)?(?:[\\w-]+\\s+){0,2}?(features?|functions?|bugs?|endpoints?|services?|migrations?|modules?)\\b(?=\\s*(?:$|[.,;:!?)]|\\b(?:for|in|on|to|that|which|so|and|then|with|by|from|at|before|after)\\b|\\b(?:scripts?|code|files?|changes?)\\b))",
       "reason": "Writing or fixing the software itself is platform engineering work.",
       "refer_to": "genesis-platform-engineer"
     },

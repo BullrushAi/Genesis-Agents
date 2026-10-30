@@ -202,6 +202,29 @@
       }
     },
     {
+      "id": "ec-cutover-plan",
+      "kind": "deliver",
+      "service": "build a migration cutover plan",
+      "requirements": {
+        "text": "Build a migration cutover plan for our billing system. Give me a status update on blocked tickets first, then the cutover sequence, rollback points and owners."
+      },
+      "budget": 2.5,
+      "expect": {
+        "decision": "ACCEPTED",
+        "must_cover": [
+          "critical path",
+          "blocker",
+          "next action"
+        ],
+        "must_not_contain": [
+          "DEPLOYED"
+        ],
+        "min_words": 250,
+        "max_words": 1500,
+        "citations": false
+      }
+    },
+    {
       "id": "ec-decline-deploy",
       "kind": "decline",
       "service": "close the done tickets and merge the PRs",
@@ -221,6 +244,18 @@
         "text": "Give me a legal risk review of the liability clauses in this vendor contract."
       },
       "budget": 3.0,
+      "expect": {
+        "decision": "REJECTED"
+      }
+    },
+    {
+      "id": "ec-decline-code",
+      "kind": "decline",
+      "service": "fix the checkout bug and write the migration",
+      "requirements": {
+        "text": "Fix the bug in our checkout endpoint and write the migration script for the new orders column."
+      },
+      "budget": 2.0,
       "expect": {
         "decision": "REJECTED"
       }
