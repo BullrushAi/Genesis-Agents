@@ -11,7 +11,7 @@ brief (see marketplace/SPEC_FORMAT.md). This module turns it into:
   floor and countered at the floor when it does not. The model judges fit; it never sets the price.
 * ``run_job``: draft from the brief, check the draft against the spec (sections, length, forbidden claims, citations)
   and the model's own review against the quality bar, revise once, and strip any line that still claims an executed
-  action or addresses the reviewer.
+  action or addresses the reviewer. A draft that still fails those machine checks is not returned.
 
 Nothing here performs an external action. The internal bundles and the canonical /run path are unchanged.
 """
@@ -412,8 +412,25 @@ async def _maybe_gather_sources(spec: dict[str, Any], job: str) -> str:
     return research_evidence.evidence_prompt(job, sources)
 
 
+class DeliveryRejected(RuntimeError):
+    """The draft still fails ``check_delivery`` after the one allowed revision.
+
+    Callers must not POST it and must not treat the bid as finished.
+    """
+
+    def __init__(self, issues: list[str]) -> None:
+        self.issues = list(issues)
+        super().__init__(
+            "marketplace delivery still fails machine checks: " + "; ".join(self.issues[:MAX_ISSUES_IN_REVISION])
+        )
+
+
 async def run_job(slug: str, job_text: str, llm: LLM) -> str:
-    """Draft, check, review and (once) revise a marketplace deliverable for a canonical agent."""
+    """Draft, check, review and (once) revise a marketplace deliverable for a canonical agent.
+
+    Raises ``DeliveryRejected`` when the revised text still fails ``check_delivery``.
+    A failing draft is never returned for delivery.
+    """
     spec = load_spec(slug)
     if spec is None:
         raise LookupError(f"no marketplace spec for {slug}")
@@ -440,4 +457,10 @@ async def run_job(slug: str, job_text: str, llm: LLM) -> str:
                 draft = revised
         except Exception as exc:  # noqa: BLE001 - keep the first draft if the rewrite fails
             logger.warning("revision failed for %s: %s", slug, type(exc).__name__)
-    return sanitize(draft)
+    # Sanitize first: a forbidden line is itself a machine-check failure, and stripping it can
+    # clear that failure. What remains is judged again. Still failing means there is nothing safe to deliver.
+    cleaned = sanitize(draft)
+    remaining = check_delivery(spec, cleaned, job)
+    if remaining:
+        raise DeliveryRejected(remaining)
+    return cleaned

@@ -288,6 +288,16 @@ class TestRunJob:
         with pytest.raises(LookupError):
             run(ma.run_job("not-an-agent", "x", ScriptedLLM([])))
 
+    def test_a_draft_that_still_fails_the_machine_check_is_not_returned(self, monkeypatch):
+        monkeypatch.setenv("GENESIS_MARKET_SELF_REVIEW", "false")
+        bad = '{"status": "PARTIAL", "summary": "not a deliverable"}'
+        llm = ScriptedLLM([bad, bad])
+        with pytest.raises(ma.DeliveryRejected) as caught:
+            run(ma.run_job(self.slug, "Service requested: AP aging analysis", llm))
+        assert caught.value.issues
+        assert len(llm.calls) == 2
+        assert "REVISION REQUIRED" in llm.calls[1][1]
+
 
 # ---------------------------------------------------------------------------------------------------
 # Gateway wiring (main.py)

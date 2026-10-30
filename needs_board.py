@@ -149,6 +149,184 @@ def build_need_delivery(
     }
 
 
+class BidStore:
+    """Restart-critical open bids. ``put`` and ``drop`` raise when the write does not stick."""
+
+    def load(self) -> tuple[dict[tuple[str, str], set[str]], dict[tuple[str, str, str], float]]:
+        raise NotImplementedError
+
+    def put(self, env: str, slug: str, need_id: str, bid_at: float) -> None:
+        raise NotImplementedError
+
+    def drop(self, env: str, slug: str, need_id: str) -> None:
+        raise NotImplementedError
+
+
+class UnavailableBidStore(BidStore):
+    """No Postgres and no explicit file path. Every put fails so a bid is refused."""
+
+    def load(self) -> tuple[dict[tuple[str, str], set[str]], dict[tuple[str, str, str], float]]:
+        return {}, {}
+
+    def put(self, env: str, slug: str, need_id: str, bid_at: float) -> None:
+        raise OSError("no durable needs-bid store")
+
+    def drop(self, env: str, slug: str, need_id: str) -> None:
+        return None
+
+
+class FileBidStore(BidStore):
+    """Explicit ``GENESIS_NEEDS_STATE_PATH`` only. Never the default, and never ``/var/data``."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self._bids, self._at = self._read()
+
+    def load(self) -> tuple[dict[tuple[str, str], set[str]], dict[tuple[str, str, str], float]]:
+        return {key: set(ids) for key, ids in self._bids.items()}, dict(self._at)
+
+    def put(self, env: str, slug: str, need_id: str, bid_at: float) -> None:
+        key = (env, slug)
+        prev_ids = set(self._bids.get(key, set()))
+        prev_at = self._at.get((env, slug, need_id))
+        self._bids.setdefault(key, set()).add(need_id)
+        self._at[(env, slug, need_id)] = bid_at
+        try:
+            self._write()
+        except OSError:
+            self._restore(key, prev_ids, (env, slug, need_id), prev_at)
+            raise
+
+    def drop(self, env: str, slug: str, need_id: str) -> None:
+        key = (env, slug)
+        prev_ids = set(self._bids.get(key, set()))
+        prev_at = self._at.get((env, slug, need_id))
+        ids = self._bids.get(key)
+        if ids is not None:
+            ids.discard(need_id)
+            if not ids:
+                self._bids.pop(key, None)
+        self._at.pop((env, slug, need_id), None)
+        try:
+            self._write()
+        except OSError:
+            self._restore(key, prev_ids, (env, slug, need_id), prev_at)
+            raise
+
+    def _restore(self, key: tuple[str, str], prev_ids: set[str], at_key: tuple[str, str, str], prev_at: Optional[float]) -> None:
+        if prev_ids:
+            self._bids[key] = set(prev_ids)
+        else:
+            self._bids.pop(key, None)
+        if prev_at is None:
+            self._at.pop(at_key, None)
+        else:
+            self._at[at_key] = prev_at
+
+    def _read(self) -> tuple[dict[tuple[str, str], set[str]], dict[tuple[str, str, str], float]]:
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}, {}
+        except (OSError, ValueError) as exc:
+            logger.warning("needs board state unreadable at %s (%s)", self.path, type(exc).__name__)
+            return {}, {}
+        bids: dict[tuple[str, str], set[str]] = {}
+        bid_at: dict[tuple[str, str, str], float] = {}
+        now = time.time()
+        rows = raw.get("open_bids") if isinstance(raw, dict) else None
+        for row in rows if isinstance(rows, list) else []:
+            if isinstance(row, dict) and row.get("env") and row.get("slug") and isinstance(row.get("need_ids"), list):
+                env, slug = str(row["env"]), str(row["slug"])
+                ids = {str(n) for n in row["need_ids"] if n}
+                if not ids:
+                    continue
+                bids[(env, slug)] = ids
+                recorded = row.get("bid_at") if isinstance(row.get("bid_at"), dict) else {}
+                for need_id in ids:
+                    at = recorded.get(need_id)
+                    bid_at[(env, slug, need_id)] = float(at) if isinstance(at, (int, float)) and not isinstance(at, bool) else now
+        return bids, bid_at
+
+    def _write(self) -> None:
+        rows = [
+            {
+                "env": env,
+                "slug": slug,
+                "need_ids": sorted(ids),
+                "bid_at": {need_id: self._at.get((env, slug, need_id)) for need_id in sorted(ids)},
+            }
+            for (env, slug), ids in sorted(self._bids.items())
+            if ids
+        ]
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_name(self.path.name + ".tmp")
+        tmp.write_text(json.dumps({"open_bids": rows}), encoding="utf-8")
+        os.replace(tmp, self.path)
+
+
+class PostgresBidStore(BidStore):
+    """Open bids in the Genesis job database (``runtime.pg_store``).
+
+    The same database holds jobs, AP2 nonces and the audit chain. A failed
+    write raises ``StoreUnavailable`` (or ``OSError``) and the caller refuses
+    the bid. Nothing here touches a Render disk.
+    """
+
+    def load(self) -> tuple[dict[tuple[str, str], set[str]], dict[tuple[str, str, str], float]]:
+        from runtime import pg_store
+
+        bids: dict[tuple[str, str], set[str]] = {}
+        bid_at: dict[tuple[str, str, str], float] = {}
+        with pg_store.transaction() as cur:
+            cur.execute("SELECT env, slug, need_id, bid_at FROM genesis_needs_bids")
+            for row in cur.fetchall():
+                env, slug, need_id = str(row["env"]), str(row["slug"]), str(row["need_id"])
+                bids.setdefault((env, slug), set()).add(need_id)
+                bid_at[(env, slug, need_id)] = float(row["bid_at"])
+        return bids, bid_at
+
+    def put(self, env: str, slug: str, need_id: str, bid_at: float) -> None:
+        from runtime import pg_store
+
+        with pg_store.transaction() as cur:
+            cur.execute(
+                """
+                INSERT INTO genesis_needs_bids (env, slug, need_id, bid_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (env, slug, need_id) DO NOTHING
+                """,
+                (env, slug, need_id, bid_at),
+            )
+
+    def drop(self, env: str, slug: str, need_id: str) -> None:
+        from runtime import pg_store
+
+        with pg_store.transaction() as cur:
+            cur.execute(
+                "DELETE FROM genesis_needs_bids WHERE env = %s AND slug = %s AND need_id = %s",
+                (env, slug, need_id),
+            )
+
+
+def bid_store_from_env() -> BidStore:
+    """Where open bids are kept.
+
+    Postgres when the Genesis job database is selected — the same store as the
+    other restart-critical state. An explicit ``GENESIS_NEEDS_STATE_PATH`` is
+    used only when Postgres is not selected (tests and local files). There is
+    no ``/var/data`` default. With neither, puts fail and bids are refused.
+    """
+    from runtime import pg_store
+
+    if pg_store.postgres_selected():
+        return PostgresBidStore()
+    explicit = os.getenv("GENESIS_NEEDS_STATE_PATH", "").strip()
+    if explicit:
+        return FileBidStore(Path(explicit))
+    return UnavailableBidStore()
+
+
 def should_deliver(work_order: dict[str, Any], agent_id: str) -> bool:
     """An active, escrow-held work order for this agent that has not been delivered yet."""
     need = work_order.get("need") or {}
@@ -166,72 +344,62 @@ def should_deliver(work_order: dict[str, Any], agent_id: str) -> bool:
 
 class NeedsBoard:
     def __init__(
-        self, provider: ap2_provider.Ap2Provider, executor: Executor, *, state_path: Optional[Path] = None
+        self,
+        provider: ap2_provider.Ap2Provider,
+        executor: Executor,
+        *,
+        state_path: Optional[Path] = None,
+        bid_store: Optional[BidStore] = None,
     ) -> None:
         self.provider = provider
         self._execute = executor
-        # (env, slug) -> need ids this runtime bid on and has not finished with. Kept in state_path when one is
-        # given, so a restart neither loses an accepted bid (its escrow would sit undelivered when the
-        # work-orders route is missing) nor bids again on a need it already bid on.
-        self._state_path = state_path
+        # (env, slug) -> need ids this runtime bid on and has not finished with. Kept in bid_store so a
+        # restart neither loses an accepted bid (its escrow would sit undelivered when the work-orders
+        # route is missing) nor bids again on a need it already bid on. state_path is the explicit file
+        # override used by tests; production passes the Postgres store and does not default a path.
+        if bid_store is None and state_path is not None:
+            bid_store = FileBidStore(state_path)
+        self._store = bid_store
         self._bid_at: dict[tuple[str, str, str], float] = {}
-        self.open_bids: dict[tuple[str, str], set[str]] = self._load_bids()
+        self.open_bids: dict[tuple[str, str], set[str]] = {}
+        self._load_bids()
         self._done: set[str] = set()
         self._in_flight: set[str] = set()
         self._next_work_poll: dict[tuple[str, str], float] = {}
         self._next_scan: dict[str, float] = {}
         self.ledger: dict[str, dict[str, Any]] = {}
 
-    def _load_bids(self) -> dict[tuple[str, str], set[str]]:
-        if self._state_path is None:
-            return {}
-        try:
-            raw = json.loads(self._state_path.read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            return {}
-        except (OSError, ValueError) as exc:
-            logger.warning("needs board state unreadable at %s: %s", self._state_path, exc)
-            return {}
-        bids: dict[tuple[str, str], set[str]] = {}
-        now = time.time()
-        rows = raw.get("open_bids") if isinstance(raw, dict) else None
-        for row in rows if isinstance(rows, list) else []:
-            if isinstance(row, dict) and row.get("env") and row.get("slug") and isinstance(row.get("need_ids"), list):
-                env, slug = str(row["env"]), str(row["slug"])
-                bids[(env, slug)] = {str(n) for n in row["need_ids"] if n}
-                bid_at = row.get("bid_at") if isinstance(row.get("bid_at"), dict) else {}
-                for need_id in bids[(env, slug)]:
-                    at = bid_at.get(need_id)
-                    self._bid_at[(env, slug, need_id)] = float(at) if isinstance(at, (int, float)) else now
-        return bids
-
-    def _save_bids(self) -> None:
-        if self._state_path is None:
+    def _load_bids(self) -> None:
+        if self._store is None:
             return
-        rows = [
-            {"env": e, "slug": s, "need_ids": sorted(ids), "bid_at": {n: self._bid_at.get((e, s, n)) for n in sorted(ids)}}
-            for (e, s), ids in sorted(self.open_bids.items())
-            if ids
-        ]
         try:
-            self._state_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = self._state_path.with_name(self._state_path.name + ".tmp")
-            tmp.write_text(json.dumps({"open_bids": rows}), encoding="utf-8")
-            os.replace(tmp, self._state_path)
-        except OSError as exc:
-            logger.warning("needs board state not saved to %s: %s", self._state_path, exc)
+            loaded, bid_at = self._store.load()
+        except Exception as exc:  # noqa: BLE001 - an unreadable store must not look like "no bids, go bid"
+            logger.error("needs bid state unreadable (%s); refusing new bids", type(exc).__name__)
+            self._store = UnavailableBidStore()
+            return
+        self.open_bids = loaded
+        self._bid_at = bid_at
 
     def _track_bid(self, cred: ap2_provider.AgentCredential, need_id: str) -> None:
+        """Record the bid durably BEFORE it is sent. Raises when the write does not stick."""
+        at = self._bid_at.get((cred.env, cred.slug, need_id), time.time())
+        if self._store is not None:
+            self._store.put(cred.env, cred.slug, need_id, at)
         self.open_bids.setdefault((cred.env, cred.slug), set()).add(need_id)
-        self._bid_at.setdefault((cred.env, cred.slug, need_id), time.time())
-        self._save_bids()
+        self._bid_at[(cred.env, cred.slug, need_id)] = at
 
     def _forget_bid(self, cred: ap2_provider.AgentCredential, need_id: str) -> None:
+        if self._store is not None:
+            try:
+                self._store.drop(cred.env, cred.slug, need_id)
+            except Exception as exc:  # noqa: BLE001 - keep the pointer when the delete does not stick
+                logger.warning("bid %s for %s not forgotten (%s)", need_id, cred.slug, type(exc).__name__)
+                return
         self._bid_at.pop((cred.env, cred.slug, need_id), None)
         ids = self.open_bids.get((cred.env, cred.slug))
         if ids and need_id in ids:
             ids.discard(need_id)
-            self._save_bids()
 
     def _record(self, need_id: str, **fields: Any) -> None:
         entry = self.ledger.setdefault(need_id, {"need_id": need_id})
@@ -284,19 +452,35 @@ class NeedsBoard:
                 row["message"] = message
                 bids.append(row)
                 continue
-            st, body = await client._call(
-                "POST",
-                f"/needs/{need['id']}/respond",
-                body={"responderAgentId": cred.agent_id, "message": message, "proposedPriceCents": price},
-            )
+            # Persist first. A bid that exists only in memory is lost on restart, and when the
+            # work-order list route is missing that memory was the only pointer to held escrow.
+            # A failed write refuses the bid: nothing is POSTed.
+            try:
+                self._track_bid(cred, need["id"])
+            except Exception as exc:  # noqa: BLE001 - fail closed; do not bid what we cannot remember
+                logger.warning("refusing to bid on need %s as %s (%s)", need["id"], cred.slug, type(exc).__name__)
+                row["error"] = "bid_state_not_durable"
+                bids.append(row)
+                continue
+            try:
+                st, body = await client._call(
+                    "POST",
+                    f"/needs/{need['id']}/respond",
+                    body={"responderAgentId": cred.agent_id, "message": message, "proposedPriceCents": price},
+                )
+            except Exception:
+                # The POST did not stick on our side. Drop the reservation so a later tick can retry.
+                # A server that actually accepted it answers 409 next time, and that re-tracks the bid.
+                self._forget_bid(cred, need["id"])
+                raise
             row["http_status"] = st
             if st < 300 or st == 409:
-                # 409: this agent already bid on the need (a restart lost the record); track it again.
-                self._track_bid(cred, need["id"])
+                # 409: this agent already bid on the need (a restart lost the record); the row is kept.
                 self._next_work_poll.pop(key, None)
                 self._record(need["id"], role="bidder", env=cred.env, agent=cred.slug, bid_cents=price,
                              status="BID" if st < 300 else "ALREADY_BID")
             else:
+                self._forget_bid(cred, need["id"])
                 row["error"] = body if isinstance(body, (str, dict)) else str(body)[:200]
                 logger.warning("bid on need %s as %s -> %s %.200s", need["id"], cred.slug, st, body)
             bids.append(row)
@@ -343,7 +527,10 @@ class NeedsBoard:
             status, data = await client._call("POST", f"/needs/{need_id}/deliver", body=body)
             self._record(need_id, role="seller", env=cred.env, agent=cred.slug, deliver_status=status,
                          result_sha256=body["evidence"]["result_sha256"])
-            if status < 300 or (400 <= status < 500 and status != 429):
+            # Forget the bid only when the delivery landed, or the marketplace says it already
+            # did (409). A 400/401/403/404/408/422/429/5xx leaves the bid in place so a later tick
+            # can retry. Marking those done would keep the bid and never try again.
+            if status < 300 or status == 409:
                 self._done.add(key)
                 self._forget_bid(cred, need_id)
             if status >= 400:

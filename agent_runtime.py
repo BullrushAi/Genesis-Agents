@@ -1,5 +1,6 @@
 """Genesis agent runtime - multi-turn LLM loop with tool dispatch, per-slug parameterized."""
 from __future__ import annotations
+import contextvars
 import json
 import hmac
 import logging
@@ -78,6 +79,12 @@ except Exception:
 # ImportError is not a prohibition. runtime.tool_policy is pure standard
 # library, so this import cannot fail anywhere agent_runtime itself imports.
 from runtime.per_agent_model import resolve_agent_model
+
+# Task-local so a per-agent model override reaches _call_llm without a new
+# argument. Callers and tests replace _call_llm with the original four parameters.
+_AGENT_LLM_SLUG: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "genesis_agent_llm_slug", default=None
+)
 from runtime.tool_policy import (  # noqa: E402
     RISK_DEPLOYMENT,
     RISK_READ_ONLY,
@@ -871,11 +878,16 @@ class AgentRuntime:
                     "limit": MAX_LLM_CALLS,
                 }
 
-            # Call LLM
+            # Call LLM. slug is task-local, not a fifth argument: replacements of
+            # _call_llm keep the original (model, messages, tools, max_tokens) shape.
             try:
-                response = await self._call_llm(
-                    model, messages, provider_tools, token_budget, slug=slug
-                )
+                slug_token = _AGENT_LLM_SLUG.set(slug)
+                try:
+                    response = await self._call_llm(
+                        model, messages, provider_tools, token_budget
+                    )
+                finally:
+                    _AGENT_LLM_SLUG.reset(slug_token)
                 llm_calls += 1
                 if isinstance(response.get("swarmsync"), dict):
                     last_swarmsync = response["swarmsync"]
@@ -1738,6 +1750,8 @@ class AgentRuntime:
         slug: Optional[str] = None,
     ) -> dict[str, Any]:
         """Dispatch a model request through the configured provider."""
+        if slug is None:
+            slug = _AGENT_LLM_SLUG.get()
         return await self._call_llm_inner(model, messages, tools, max_tokens, slug=slug)
 
     async def _call_llm_inner(

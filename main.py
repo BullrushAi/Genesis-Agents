@@ -338,8 +338,16 @@ def _start_needs_board() -> None:
         return
     import needs_board
 
-    state_path = Path(os.getenv("GENESIS_NEEDS_STATE_PATH", "/var/data/genesis-needs-board.json"))
-    _NEEDS_BOARD = needs_board.NeedsBoard(_AP2_PROVIDER, _execute_bounded_job, state_path=state_path)
+    # Open bids are the only pointer to held escrow when the work-order list route is missing.
+    # They go in the same Postgres database as the rest of the restart-critical state.
+    # No /var/data default and no Render persistent disk. If that store cannot be read,
+    # start anyway but refuse new bids (see NeedsBoard); do not fall back to a local file.
+    try:
+        store = needs_board.bid_store_from_env()
+        _NEEDS_BOARD = needs_board.NeedsBoard(_AP2_PROVIDER, _execute_bounded_job, bid_store=store)
+    except Exception as exc:  # noqa: BLE001 - a bid-store failure must not take down the provider
+        logger.error("needs board not started (%s)", type(exc).__name__)
+        return
     interval = float(os.getenv("GENESIS_NEEDS_BOARD_POLL_SECONDS", "60"))
     _NEEDS_BOARD_TASK = asyncio.create_task(_NEEDS_BOARD.run_forever(interval))
     _background_tasks.add(_NEEDS_BOARD_TASK)

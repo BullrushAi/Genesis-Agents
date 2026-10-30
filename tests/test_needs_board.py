@@ -52,6 +52,7 @@ class FakeBoard:
         self.delivered: list[tuple[str, dict]] = []
         self.work_orders: dict[str, dict] = {}
         self.work_route = False
+        self.deliver_status = 201
         self.calls: list[tuple[str, str, bool]] = []
 
     def client(self, url: str, agent_id: str, api_key: str):
@@ -74,7 +75,7 @@ class FakeBoard:
                     return (200, wo) if wo else (404, {})
                 if path.endswith("/deliver"):
                     board.delivered.append((path.split("/")[2], body))
-                    return 201, {"status": "VERIFICATION_PENDING"}
+                    return board.deliver_status, {"status": "VERIFICATION_PENDING"}
                 return 404, {}
 
         assert url == CERT_URL
@@ -345,3 +346,169 @@ class TestRestart:
         board = nb.NeedsBoard(ap.Ap2Provider([seller()], None, key(), "runtime-sha", FakeBoard().client), None,
                               state_path=state)
         assert board.open_bids == {}
+
+
+def _clear_store_env(monkeypatch) -> None:
+    for name in ("GENESIS_NEEDS_STATE_PATH", "GENESIS_JOB_DATABASE_URL", "DIRECT_URL", "DATABASE_URL", "GENESIS_STORE_BACKEND"):
+        monkeypatch.delenv(name, raising=False)
+
+
+class TestEscrowBidDurability:
+    def test_startup_does_not_default_the_bid_file_to_var_data(self, monkeypatch):
+        _clear_store_env(monkeypatch)
+        source = (PROJECT_ROOT / "main.py").read_text(encoding="utf-8")
+        assert "/var/data/genesis-needs-board.json" not in source
+        assert isinstance(nb.bid_store_from_env(), nb.UnavailableBidStore)
+
+    def test_the_job_database_is_the_bid_store_when_postgres_is_selected(self, monkeypatch):
+        _clear_store_env(monkeypatch)
+        monkeypatch.setenv("GENESIS_JOB_DATABASE_URL", "postgresql://127.0.0.1:1/genesis")
+        monkeypatch.setenv("GENESIS_NEEDS_STATE_PATH", "/var/data/genesis-needs-board.json")
+        store = nb.bid_store_from_env()
+        assert isinstance(store, nb.PostgresBidStore)
+
+    def test_postgres_bid_rows_use_bound_parameters(self, monkeypatch):
+        class Cursor:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, tuple]] = []
+
+            def execute(self, sql, params=None):
+                self.calls.append((sql, tuple(params or ())))
+
+            def fetchall(self):
+                return [{"env": "cert-staging", "slug": KE, "need_id": "need-1", "bid_at": 1.5}]
+
+        cursor = Cursor()
+
+        class Tx:
+            def __enter__(self):
+                return cursor
+
+            def __exit__(self, *args):
+                return False
+
+        import runtime.pg_store as pg_store
+
+        monkeypatch.setattr(pg_store, "transaction", lambda: Tx())
+        store = nb.PostgresBidStore()
+        bids, at = store.load()
+        assert bids[("cert-staging", KE)] == {"need-1"}
+        assert at[("cert-staging", KE, "need-1")] == 1.5
+        store.put("cert-staging", KE, "need-2", 2.0)
+        insert_sql, insert_params = cursor.calls[-1]
+        assert "INSERT INTO genesis_needs_bids" in insert_sql
+        assert "%s" in insert_sql
+        assert insert_params == ("cert-staging", KE, "need-2", 2.0)
+        store.drop("cert-staging", KE, "need-2")
+        delete_sql, delete_params = cursor.calls[-1]
+        assert "DELETE FROM genesis_needs_bids" in delete_sql
+        assert delete_params == ("cert-staging", KE, "need-2")
+
+    def test_a_failed_bid_write_is_not_sent(self, tmp_path):
+        blocked = tmp_path / "not-a-directory"
+        blocked.write_text("x")
+        state = blocked / "needs.json"
+        fake = FakeBoard()
+        fake.for_agent = [need()]
+        board = nb.NeedsBoard(
+            ap.Ap2Provider([seller()], None, key(), "runtime-sha", fake.client), None, state_path=state
+        )
+        report = run(board.find_buyers(KE))
+        assert fake.responses == []
+        assert report["bids"][0]["error"] == "bid_state_not_durable"
+        assert "http_status" not in report["bids"][0]
+        assert board.open_bids.get(("cert-staging", KE), set()) == set()
+
+    def test_no_durable_store_refuses_the_bid(self, monkeypatch):
+        _clear_store_env(monkeypatch)
+        fake = FakeBoard()
+        fake.for_agent = [need()]
+        board = nb.NeedsBoard(
+            ap.Ap2Provider([seller()], None, key(), "runtime-sha", fake.client),
+            None,
+            bid_store=nb.bid_store_from_env(),
+        )
+        report = run(board.find_buyers(KE))
+        assert fake.responses == []
+        assert report["bids"][0]["error"] == "bid_state_not_durable"
+        assert board.open_bids.get(("cert-staging", KE), set()) == set()
+
+    def test_an_unreadable_store_refuses_new_bids(self):
+        class Unreadable(nb.BidStore):
+            def load(self):
+                raise RuntimeError("store down")
+
+            def put(self, env, slug, need_id, bid_at):
+                raise AssertionError("must not bid when the store could not be read")
+
+            def drop(self, env, slug, need_id):
+                return None
+
+        fake = FakeBoard()
+        fake.for_agent = [need()]
+        board = nb.NeedsBoard(
+            ap.Ap2Provider([seller()], None, key(), "runtime-sha", fake.client), None, bid_store=Unreadable()
+        )
+        report = run(board.find_buyers(KE))
+        assert fake.responses == []
+        assert report["bids"][0]["error"] == "bid_state_not_durable"
+        assert board.open_bids.get(("cert-staging", KE), set()) == set()
+
+
+class TestDeliveryKeepsTheBidUnlessItLanded:
+    @pytest.mark.parametrize("status", [200, 201, 299, 409])
+    def test_forgets_the_bid_only_when_delivery_lands_or_already_landed(self, status):
+        fake = FakeBoard()
+        fake.deliver_status = status
+        fake.for_agent = [need()]
+        board = board_with(fake)
+        run(board.find_buyers(KE))
+        fake.work_orders["need-1"] = work_order()
+        run(board.tick())
+        assert [d[0] for d in fake.delivered] == ["need-1"]
+        assert board.open_bids[("cert-staging", KE)] == set()
+        assert "need:cert-staging:need-1" in board._done
+
+    @pytest.mark.parametrize("status", [300, 400, 401, 403, 404, 408, 422, 429, 500, 503])
+    def test_a_non_delivery_status_leaves_the_bid_for_a_later_tick(self, status):
+        fake = FakeBoard()
+        fake.deliver_status = status
+        fake.for_agent = [need()]
+        board = board_with(fake)
+        run(board.find_buyers(KE))
+        fake.work_orders["need-1"] = work_order()
+        run(board.tick())
+        assert [d[0] for d in fake.delivered] == ["need-1"]
+        assert board.open_bids[("cert-staging", KE)] == {"need-1"}
+        assert "need:cert-staging:need-1" not in board._done
+        fake.deliver_status = 201
+        board._next_work_poll.clear()
+        run(board.tick())
+        assert [d[0] for d in fake.delivered] == ["need-1", "need-1"]
+        assert board.open_bids[("cert-staging", KE)] == set()
+
+    def test_run_job_rejection_is_not_posted_and_the_bid_stays(self, monkeypatch):
+        monkeypatch.setenv("GENESIS_MARKET_SELF_REVIEW", "false")
+
+        async def no_sources(spec, job):
+            return job
+
+        monkeypatch.setattr(ma, "_maybe_gather_sources", no_sources)
+        fake = FakeBoard()
+        fake.for_agent = [need()]
+        replies = ['{"status": "PARTIAL"}', '{"status": "PARTIAL"}']
+
+        async def executor(slug, prompt):
+            class Scripted:
+                async def __call__(self, system, user):
+                    return replies.pop(0)
+
+            return await ma.run_job(slug, prompt, Scripted())
+
+        board = board_with(fake, executor)
+        run(board.find_buyers(KE))
+        fake.work_orders["need-1"] = work_order()
+        run(board.tick())
+        assert fake.delivered == []
+        assert board.open_bids[("cert-staging", KE)] == {"need-1"}
+        assert "need:cert-staging:need-1" not in board._done

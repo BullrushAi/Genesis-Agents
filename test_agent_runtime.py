@@ -8,6 +8,28 @@ from agent_runtime import AgentRuntime, _check_success_criteria, _deployment_sid
 from bundle_loader import load_bundle, list_bundles, resolve_bundle_slug
 
 
+def test_per_agent_slug_reaches_model_resolution_without_a_fifth_argument():
+    """Replacements of _call_llm keep four parameters; the slug still selects the model."""
+    import asyncio
+
+    from agent_runtime import _AGENT_LLM_SLUG
+
+    runtime = AgentRuntime("https://router.invalid", "router-key")
+    seen: dict[str, str | None] = {}
+
+    async def inner(model, messages, tools, max_tokens, slug=None):
+        seen["slug"] = slug
+        return {"choices": [{"message": {"content": "ok"}}]}
+
+    runtime._call_llm_inner = inner  # type: ignore[method-assign]
+    token = _AGENT_LLM_SLUG.set("genesis-fin-ap")
+    try:
+        asyncio.run(runtime._call_llm("auto", [{"role": "user", "content": "x"}], [], 100))
+    finally:
+        _AGENT_LLM_SLUG.reset(token)
+    assert seen["slug"] == "genesis-fin-ap"
+
+
 def test_bundles_present():
     """At least 20 bundles must be available."""
     slugs = list_bundles()
