@@ -273,6 +273,28 @@ class TestDeliverWorkOrders:
         assert [d[0] for d in fake.delivered] == ["need-2"]
 
 
+    def test_a_bid_waiting_for_the_buyer_is_kept_until_accepted(self):
+        fake = FakeBoard()
+        fake.for_agent = [need()]
+        board = board_with(fake)
+        run(board.find_buyers(KE))
+        run(board.tick())  # no work order yet: the buyer has not accepted, and the route answers 404
+        assert board.open_bids[("cert-staging", KE)] == {"need-1"}
+        fake.work_orders["need-1"] = work_order()
+        board._next_work_poll.clear()
+        run(board.tick())
+        assert [d[0] for d in fake.delivered] == ["need-1"]
+
+    def test_a_bid_never_accepted_is_dropped_after_its_time(self):
+        fake = FakeBoard()
+        fake.for_agent = [need()]
+        board = board_with(fake)
+        run(board.find_buyers(KE))
+        board._bid_at[("cert-staging", KE, "need-1")] -= nb.OPEN_BID_TTL_SECONDS + 1
+        run(board.tick())
+        assert board.open_bids[("cert-staging", KE)] == set()
+
+
 class TestRestart:
     def test_open_bids_survive_a_restart(self, tmp_path):
         fake = FakeBoard()

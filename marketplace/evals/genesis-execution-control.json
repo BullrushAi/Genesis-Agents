@@ -156,6 +156,52 @@
       }
     },
     {
+      "id": "ec-migration-plan",
+      "kind": "deliver",
+      "service": "build a migration plan for our CRM",
+      "requirements": {
+        "text": "Build a migration plan for our CRM move to the new vendor. Attached are the data objects, owners and the go-live date of Feb 1. Sequence the work, flag the risks and name the first actions."
+      },
+      "budget": 2.0,
+      "expect": {
+        "decision": "ACCEPTED",
+        "must_cover": [
+          "critical path",
+          "risk",
+          "next action"
+        ],
+        "must_not_contain": [
+          "DEPLOYED"
+        ],
+        "min_words": 250,
+        "max_words": 1500,
+        "citations": false
+      }
+    },
+    {
+      "id": "ec-ticket-update",
+      "kind": "deliver",
+      "service": "update me on tickets that are blocked",
+      "requirements": {
+        "text": "Update me on tickets that are blocked in our support queue and what is holding each one up. Attached is the ticket export. Do not change any ticket."
+      },
+      "budget": 2.0,
+      "expect": {
+        "decision": "ACCEPTED",
+        "must_cover": [
+          "blocker",
+          "status",
+          "next action"
+        ],
+        "must_not_contain": [
+          "DEPLOYED"
+        ],
+        "min_words": 250,
+        "max_words": 1500,
+        "citations": false
+      }
+    },
+    {
       "id": "ec-decline-deploy",
       "kind": "decline",
       "service": "close the done tickets and merge the PRs",

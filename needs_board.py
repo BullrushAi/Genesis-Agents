@@ -37,6 +37,8 @@ MAX_BIDS_CAP = 10
 WORK_ORDER_POLL_SECONDS = 300.0
 IDLE_WORK_ORDER_POLL_SECONDS = 900.0
 SCAN_SECONDS = 3600.0
+# A bid with no work order yet is kept this long, then dropped as never accepted.
+OPEN_BID_TTL_SECONDS = 14 * 86400.0
 BID_MESSAGE_CHARS = 2000
 
 
@@ -172,6 +174,7 @@ class NeedsBoard:
         # given, so a restart neither loses an accepted bid (its escrow would sit undelivered when the
         # work-orders route is missing) nor bids again on a need it already bid on.
         self._state_path = state_path
+        self._bid_at: dict[tuple[str, str, str], float] = {}
         self.open_bids: dict[tuple[str, str], set[str]] = self._load_bids()
         self._done: set[str] = set()
         self._in_flight: set[str] = set()
@@ -190,16 +193,26 @@ class NeedsBoard:
             logger.warning("needs board state unreadable at %s: %s", self._state_path, exc)
             return {}
         bids: dict[tuple[str, str], set[str]] = {}
+        now = time.time()
         rows = raw.get("open_bids") if isinstance(raw, dict) else None
         for row in rows if isinstance(rows, list) else []:
             if isinstance(row, dict) and row.get("env") and row.get("slug") and isinstance(row.get("need_ids"), list):
-                bids[(str(row["env"]), str(row["slug"]))] = {str(n) for n in row["need_ids"] if n}
+                env, slug = str(row["env"]), str(row["slug"])
+                bids[(env, slug)] = {str(n) for n in row["need_ids"] if n}
+                bid_at = row.get("bid_at") if isinstance(row.get("bid_at"), dict) else {}
+                for need_id in bids[(env, slug)]:
+                    at = bid_at.get(need_id)
+                    self._bid_at[(env, slug, need_id)] = float(at) if isinstance(at, (int, float)) else now
         return bids
 
     def _save_bids(self) -> None:
         if self._state_path is None:
             return
-        rows = [{"env": e, "slug": s, "need_ids": sorted(ids)} for (e, s), ids in sorted(self.open_bids.items()) if ids]
+        rows = [
+            {"env": e, "slug": s, "need_ids": sorted(ids), "bid_at": {n: self._bid_at.get((e, s, n)) for n in sorted(ids)}}
+            for (e, s), ids in sorted(self.open_bids.items())
+            if ids
+        ]
         try:
             self._state_path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self._state_path.with_name(self._state_path.name + ".tmp")
@@ -208,7 +221,13 @@ class NeedsBoard:
         except OSError as exc:
             logger.warning("needs board state not saved to %s: %s", self._state_path, exc)
 
+    def _track_bid(self, cred: ap2_provider.AgentCredential, need_id: str) -> None:
+        self.open_bids.setdefault((cred.env, cred.slug), set()).add(need_id)
+        self._bid_at.setdefault((cred.env, cred.slug, need_id), time.time())
+        self._save_bids()
+
     def _forget_bid(self, cred: ap2_provider.AgentCredential, need_id: str) -> None:
+        self._bid_at.pop((cred.env, cred.slug, need_id), None)
         ids = self.open_bids.get((cred.env, cred.slug))
         if ids and need_id in ids:
             ids.discard(need_id)
@@ -273,8 +292,7 @@ class NeedsBoard:
             row["http_status"] = st
             if st < 300 or st == 409:
                 # 409: this agent already bid on the need (a restart lost the record); track it again.
-                already.add(need["id"])
-                self._save_bids()
+                self._track_bid(cred, need["id"])
                 self._next_work_poll.pop(key, None)
                 self._record(need["id"], role="bidder", env=cred.env, agent=cred.slug, bid_cents=price,
                              status="BID" if st < 300 else "ALREADY_BID")
@@ -305,7 +323,11 @@ class NeedsBoard:
             if st == 200 and isinstance(body, dict):
                 orders.append(body)
             elif st == 404:
-                self._forget_bid(cred, need_id)
+                # No work order yet also means the buyer has not accepted the bid, so a 404 alone does not end it.
+                # Keep the bid until it is delivered, or until it is old enough to count as never accepted.
+                bid_at = self._bid_at.setdefault((cred.env, cred.slug, need_id), time.time())
+                if time.time() - bid_at >= OPEN_BID_TTL_SECONDS:
+                    self._forget_bid(cred, need_id)
         return orders
 
     async def deliver(self, cred: ap2_provider.AgentCredential, client: Any, work_order: dict[str, Any]) -> None:
