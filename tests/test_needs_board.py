@@ -235,3 +235,91 @@ class TestDeliverWorkOrders:
         fake2.for_agent = [need()]
         run(board_with(fake2).tick())
         assert len(fake2.responses) == 1
+
+    def test_one_agent_failing_does_not_stop_the_others(self):
+        ap_id = "22222222-2222-4222-8222-222222222222"
+        fake = FakeBoard()
+        fake.work_route = True
+        fake.work_orders["need-1"] = work_order("need-1")
+        fake.work_orders["need-2"] = work_order("need-2", agent_id=ap_id)
+
+        async def executor(slug, prompt):
+            if slug == KE:
+                raise RuntimeError("model down")
+            return "## Answer\nDone."
+
+        board = board_with(fake, executor, creds=[seller(), seller("genesis-fin-ap", ap_id)])
+        run(board.tick())
+        assert [d[0] for d in fake.delivered] == ["need-2"]
+
+    def test_a_failed_work_order_poll_does_not_stop_the_others(self):
+        ap_id = "22222222-2222-4222-8222-222222222222"
+        fake = FakeBoard()
+        fake.work_route = True
+        fake.work_orders["need-2"] = work_order("need-2", agent_id=ap_id)
+        original = fake.client
+
+        def client(url, agent_id, api_key):
+            c = original(url, agent_id, api_key)
+            if agent_id == KE_ID:
+                async def broken(*a, **k):
+                    raise ConnectionError("network")
+                c._call = broken
+            return c
+
+        fake.client = client
+        board = board_with(fake, creds=[seller(), seller("genesis-fin-ap", ap_id)])
+        run(board.tick())
+        assert [d[0] for d in fake.delivered] == ["need-2"]
+
+
+class TestRestart:
+    def test_open_bids_survive_a_restart(self, tmp_path):
+        fake = FakeBoard()
+        fake.for_agent = [need()]
+        state = tmp_path / "needs.json"
+        provider = ap.Ap2Provider([seller()], None, key(), "runtime-sha", fake.client)
+
+        async def executor(slug, prompt):
+            return "## Answer\nThe brief."
+
+        first = nb.NeedsBoard(provider, executor, state_path=state)
+        run(first.find_buyers(KE))
+        restarted = nb.NeedsBoard(provider, executor, state_path=state)
+        assert restarted.open_bids[("cert-staging", KE)] == {"need-1"}
+        run(restarted.find_buyers(KE))
+        assert len(fake.responses) == 1  # no second bid on the same need after the restart
+        # The buyer accepts after the restart; the work-orders route is missing, so only the saved bid finds it.
+        fake.work_orders["need-1"] = work_order()
+        run(restarted.tick())
+        assert [d[0] for d in fake.delivered] == ["need-1"]
+        assert nb.NeedsBoard(provider, executor, state_path=state).open_bids.get(("cert-staging", KE), set()) == set()
+
+    def test_an_existing_bid_is_tracked_again(self):
+        fake = FakeBoard()
+        fake.for_agent = [need()]
+        original = fake.client
+
+        def client(url, agent_id, api_key):
+            c = original(url, agent_id, api_key)
+            inner = c._call
+
+            async def call(method, path, **kw):
+                if path.endswith("/respond"):
+                    return 409, {"message": "already responded"}
+                return await inner(method, path, **kw)
+
+            c._call = call
+            return c
+
+        fake.client = client
+        board = board_with(fake)
+        run(board.find_buyers(KE))
+        assert board.open_bids[("cert-staging", KE)] == {"need-1"}
+
+    def test_unreadable_state_starts_empty(self, tmp_path):
+        state = tmp_path / "needs.json"
+        state.write_text("not json")
+        board = nb.NeedsBoard(ap.Ap2Provider([seller()], None, key(), "runtime-sha", FakeBoard().client), None,
+                              state_path=state)
+        assert board.open_bids == {}

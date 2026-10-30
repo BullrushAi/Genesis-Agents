@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
 import ap2_provider
@@ -161,16 +163,56 @@ def should_deliver(work_order: dict[str, Any], agent_id: str) -> bool:
 
 
 class NeedsBoard:
-    def __init__(self, provider: ap2_provider.Ap2Provider, executor: Executor) -> None:
+    def __init__(
+        self, provider: ap2_provider.Ap2Provider, executor: Executor, *, state_path: Optional[Path] = None
+    ) -> None:
         self.provider = provider
         self._execute = executor
-        # (env, slug) -> need ids this runtime bid on and has not finished with.
-        self.open_bids: dict[tuple[str, str], set[str]] = {}
+        # (env, slug) -> need ids this runtime bid on and has not finished with. Kept in state_path when one is
+        # given, so a restart neither loses an accepted bid (its escrow would sit undelivered when the
+        # work-orders route is missing) nor bids again on a need it already bid on.
+        self._state_path = state_path
+        self.open_bids: dict[tuple[str, str], set[str]] = self._load_bids()
         self._done: set[str] = set()
         self._in_flight: set[str] = set()
         self._next_work_poll: dict[tuple[str, str], float] = {}
         self._next_scan: dict[str, float] = {}
         self.ledger: dict[str, dict[str, Any]] = {}
+
+    def _load_bids(self) -> dict[tuple[str, str], set[str]]:
+        if self._state_path is None:
+            return {}
+        try:
+            raw = json.loads(self._state_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError) as exc:
+            logger.warning("needs board state unreadable at %s: %s", self._state_path, exc)
+            return {}
+        bids: dict[tuple[str, str], set[str]] = {}
+        rows = raw.get("open_bids") if isinstance(raw, dict) else None
+        for row in rows if isinstance(rows, list) else []:
+            if isinstance(row, dict) and row.get("env") and row.get("slug") and isinstance(row.get("need_ids"), list):
+                bids[(str(row["env"]), str(row["slug"]))] = {str(n) for n in row["need_ids"] if n}
+        return bids
+
+    def _save_bids(self) -> None:
+        if self._state_path is None:
+            return
+        rows = [{"env": e, "slug": s, "need_ids": sorted(ids)} for (e, s), ids in sorted(self.open_bids.items()) if ids]
+        try:
+            self._state_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self._state_path.with_name(self._state_path.name + ".tmp")
+            tmp.write_text(json.dumps({"open_bids": rows}), encoding="utf-8")
+            os.replace(tmp, self._state_path)
+        except OSError as exc:
+            logger.warning("needs board state not saved to %s: %s", self._state_path, exc)
+
+    def _forget_bid(self, cred: ap2_provider.AgentCredential, need_id: str) -> None:
+        ids = self.open_bids.get((cred.env, cred.slug))
+        if ids and need_id in ids:
+            ids.discard(need_id)
+            self._save_bids()
 
     def _record(self, need_id: str, **fields: Any) -> None:
         entry = self.ledger.setdefault(need_id, {"need_id": need_id})
@@ -229,10 +271,13 @@ class NeedsBoard:
                 body={"responderAgentId": cred.agent_id, "message": message, "proposedPriceCents": price},
             )
             row["http_status"] = st
-            if st < 300:
+            if st < 300 or st == 409:
+                # 409: this agent already bid on the need (a restart lost the record); track it again.
                 already.add(need["id"])
+                self._save_bids()
                 self._next_work_poll.pop(key, None)
-                self._record(need["id"], role="bidder", env=cred.env, agent=cred.slug, bid_cents=price, status="BID")
+                self._record(need["id"], role="bidder", env=cred.env, agent=cred.slug, bid_cents=price,
+                             status="BID" if st < 300 else "ALREADY_BID")
             else:
                 row["error"] = body if isinstance(body, (str, dict)) else str(body)[:200]
                 logger.warning("bid on need %s as %s -> %s %.200s", need["id"], cred.slug, st, body)
@@ -260,7 +305,7 @@ class NeedsBoard:
             if st == 200 and isinstance(body, dict):
                 orders.append(body)
             elif st == 404:
-                self.open_bids[(cred.env, cred.slug)].discard(need_id)
+                self._forget_bid(cred, need_id)
         return orders
 
     async def deliver(self, cred: ap2_provider.AgentCredential, client: Any, work_order: dict[str, Any]) -> None:
@@ -278,7 +323,7 @@ class NeedsBoard:
                          result_sha256=body["evidence"]["result_sha256"])
             if status < 300 or (400 <= status < 500 and status != 429):
                 self._done.add(key)
-                self.open_bids.get((cred.env, cred.slug), set()).discard(need_id)
+                self._forget_bid(cred, need_id)
             if status >= 400:
                 logger.warning("need deliver %s -> %s %.200s", need_id, status, data)
             else:
@@ -300,13 +345,24 @@ class NeedsBoard:
                     logger.warning("needs scan for %s failed: %s", cred.slug, exc)
             if now < self._next_work_poll.get(key, 0.0):
                 continue
-            client = self.provider._client(cred)
-            orders = await self._work_orders(cred, client)
+            # One agent's failure (a network error, a model error) must not stop delivery for the others, or for
+            # this agent's other work orders: their escrow is already held.
+            try:
+                client = self.provider._client(cred)
+                orders = await self._work_orders(cred, client)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("work-order poll for %s failed: %s", cred.slug, exc)
+                continue
             pending = bool(self.open_bids.get(key))
             self._next_work_poll[key] = now + (WORK_ORDER_POLL_SECONDS if pending else IDLE_WORK_ORDER_POLL_SECONDS)
             for order in orders:
-                if should_deliver(order, cred.agent_id):
-                    await self.deliver(cred, client, order)
+                try:
+                    if should_deliver(order, cred.agent_id):
+                        await self.deliver(cred, client, order)
+                except Exception as exc:  # noqa: BLE001
+                    need_id = str((order.get("need") or {}).get("id") or "?")
+                    logger.warning("delivery of need %s as %s failed, will retry: %s", need_id, cred.slug, exc)
+                    self._next_work_poll[key] = now + WORK_ORDER_POLL_SECONDS
 
     async def run_forever(self, interval: float) -> None:
         logger.info("needs board started, interval=%.0fs", interval)

@@ -110,6 +110,52 @@
       }
     },
     {
+      "id": "ec-migration-recovery",
+      "kind": "deliver",
+      "service": "build a recovery plan for our migration",
+      "requirements": {
+        "text": "Build a recovery plan for our CRM migration: it slipped three weeks and the cutover is Jan 10. Attached are the open tasks and owners. Tell me what to cut, what to sequence first and who needs to unblock what."
+      },
+      "budget": 3.0,
+      "expect": {
+        "decision": "ACCEPTED",
+        "must_cover": [
+          "critical path",
+          "blocker",
+          "next action"
+        ],
+        "must_not_contain": [
+          "DEPLOYED"
+        ],
+        "min_words": 250,
+        "max_words": 1500,
+        "citations": false
+      }
+    },
+    {
+      "id": "ec-board-read",
+      "kind": "deliver",
+      "service": "update me on which tasks are stuck on our board",
+      "requirements": {
+        "text": "Update me on which tasks on our sprint board are actually stuck, and which PR reviews are holding them up. Attached is the board export. Do not change anything on the board."
+      },
+      "budget": 2.0,
+      "expect": {
+        "decision": "ACCEPTED",
+        "must_cover": [
+          "blocker",
+          "risk",
+          "next action"
+        ],
+        "must_not_contain": [
+          "DEPLOYED"
+        ],
+        "min_words": 250,
+        "max_words": 1500,
+        "citations": false
+      }
+    },
+    {
       "id": "ec-decline-deploy",
       "kind": "decline",
       "service": "close the done tickets and merge the PRs",

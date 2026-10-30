@@ -159,11 +159,12 @@ async def eval_agent(slug: str, llm: Optional[LLM], replay: dict[str, str], judg
     }
 
 
-def _router_llm() -> LLM:
+def _router_llm(slug: Optional[str] = None) -> LLM:
+    """The gateway router. With a slug, the agent's GENESIS_MODEL_OVERRIDE_<SLUG> applies, as in production."""
     import main
 
     async def call(system: str, user: str) -> str:
-        text, _ = main._router_result_payload(await main.call_llm_router(system, user))
+        text, _ = main._router_result_payload(await main.call_llm_router(system, user, slug=slug))
         return text
 
     return call
@@ -181,12 +182,14 @@ def main_cli(argv: Optional[list[str]] = None) -> int:
     args = ap.parse_args(argv)
 
     slugs = sorted(ma.all_specs()) if args.all else args.slug
-    llm = _router_llm() if args.llm == "router" else None
-    judge = (llm or _router_llm()) if args.judge else None
+    # Each agent runs on its own model (per-agent override); the judge stays on the global model.
+    judge = _router_llm() if args.judge else None
     replay = json.loads(args.replay.read_text()) if args.replay else {}
 
     started = time.time()
-    reports = [asyncio.run(eval_agent(s, llm, replay, judge)) for s in slugs]
+    reports = [
+        asyncio.run(eval_agent(s, _router_llm(s) if args.llm == "router" else None, replay, judge)) for s in slugs
+    ]
     lines = ["| agent | score | graded | upper 90s |", "|---|---|---|---|"]
     for r in reports:
         lines.append(f"| {r['slug']} | {r['score']:.1%} | {r['graded']} | {'yes' if r['meets_bar'] else 'no'} |")

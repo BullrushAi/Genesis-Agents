@@ -338,7 +338,8 @@ def _start_needs_board() -> None:
         return
     import needs_board
 
-    _NEEDS_BOARD = needs_board.NeedsBoard(_AP2_PROVIDER, _execute_bounded_job)
+    state_path = Path(os.getenv("GENESIS_NEEDS_STATE_PATH", "/var/data/genesis-needs-board.json"))
+    _NEEDS_BOARD = needs_board.NeedsBoard(_AP2_PROVIDER, _execute_bounded_job, state_path=state_path)
     interval = float(os.getenv("GENESIS_NEEDS_BOARD_POLL_SECONDS", "60"))
     _NEEDS_BOARD_TASK = asyncio.create_task(_NEEDS_BOARD.run_forever(interval))
     _background_tasks.add(_NEEDS_BOARD_TASK)

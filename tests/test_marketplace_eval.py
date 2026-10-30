@@ -63,3 +63,19 @@ def test_judge_items_without_an_answer_fail():
     checks = run(me.judge_output(spec, "job", "out", judge))
     assert [c["pass"] for c in checks[:3]] == [True, False, False]
     assert len(checks) == len(spec["quality_bar"])
+
+
+def test_router_llm_uses_the_agents_own_model(monkeypatch):
+    import types
+
+    seen = []
+
+    async def call_llm_router(system, user, slug=None):
+        seen.append(slug)
+        return {"text": "ok"}
+
+    fake_main = types.SimpleNamespace(call_llm_router=call_llm_router, _router_result_payload=lambda r: (r["text"], {}))
+    monkeypatch.setitem(sys.modules, "main", fake_main)
+    assert run(me._router_llm(KE)("s", "u")) == "ok"
+    assert run(me._router_llm()("s", "u")) == "ok"
+    assert seen == [KE, None]
